@@ -842,7 +842,7 @@ async function uploadPhoto(input) {
         { type: 'text', text: '思思发了一张照片给嗡嗡看，请描述你看到了什么并自然回应～' }
       ]
     };
-    const cleanHistory = history.slice(-10).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
+    // 只发图片消息，不带历史，避免格式冲突
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -852,10 +852,10 @@ async function uploadPhoto(input) {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',   // ✅ 支持视觉的模型
+        model: 'claude-sonnet-4-6',
         max_tokens: 300,
         system: buildSystem(),
-        messages: [...cleanHistory, imageMsg]
+        messages: [imageMsg]
       })
     });
     const data = await res.json();
@@ -944,7 +944,7 @@ async function sendMsg() {
         'anthropic-dangerous-direct-browser-access':'true'
       },
       body:JSON.stringify({
-        model:'claude-3-5-sonnet-20241022',   // ✅ 支持视觉
+        model:'claude-sonnet-4-6',
         max_tokens:800,
         system:buildSystem(),
         messages:(function(){
@@ -979,7 +979,7 @@ async function sendMsg() {
         const retry = await fetch('https://api.anthropic.com/v1/messages',{
           method:'POST',
           headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-          body:JSON.stringify({model:'claude-3-5-sonnet-20241022',max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
+          body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
         });
         const retryData = await retry.json();
         removeTyping();
@@ -1007,7 +1007,7 @@ async function sendMsg() {
       const retry = await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-3-5-sonnet-20241022',max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
       });
       const retryData = await retry.json();
       removeTyping();
