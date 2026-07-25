@@ -648,19 +648,19 @@ document.addEventListener('keydown', e => {
 
 async function clearSession() {
   if (history.length === 0) return;
-  const last = history.pop();
+  history.pop();
   const msgs = document.getElementById('messages');
   const rows = msgs.querySelectorAll('.msg-row');
   if (rows.length > 0) rows[rows.length - 1].remove();
-  // 同时删Supabase最后一条
+  // 用created_at删最新两条
   try {
-    const res = await fetch(`${getBase()}/rest/v1/memories?order=id.desc&limit=1`, {
+    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.desc&limit=2`, {
       headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
     });
     if (res.ok) {
-      const rows2 = await res.json();
-      if (rows2.length > 0) {
-        await fetch(`${getBase()}/rest/v1/memories?id=eq.${rows2[0].id}`, {
+      const last2 = await res.json();
+      for (const r of last2) {
+        await fetch(`${getBase()}/rest/v1/memories?created_at=eq.${encodeURIComponent(r.created_at)}`, {
           method: 'DELETE',
           headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
         });
@@ -824,7 +824,7 @@ async function uploadPhoto(input) {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-opus-4-6',
         max_tokens: 300,
         system: buildSystem(),
         messages: [...cleanHistory, imageMsg]
