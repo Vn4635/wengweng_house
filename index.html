@@ -68,6 +68,13 @@
     color: #3a2860; background: white; outline: none; margin-bottom: 8px;
   }
   .setup-input:focus { border-color: #a090d0; }
+  .setup-select {
+    width: 100%; padding: 9px 13px;
+    border: 1.5px solid rgba(180,160,220,0.45);
+    border-radius: 10px; font-size: 0.82rem;
+    color: #3a2860; background: white; outline: none; margin-bottom: 8px;
+    cursor: pointer;
+  }
   .setup-btn {
     width: 100%; padding: 11px;
     background: linear-gradient(135deg, #a8c0e0, #b8a8e0);
@@ -226,6 +233,23 @@ for(let i=0;i<14;i++){
       <input class="setup-input" id="claudeKey" type="password" placeholder="Claude API密钥 (sk-ant-...)" />
       <input class="setup-input" id="sbUrl" type="text" placeholder="Supabase URL (https://xxx.supabase.co)" />
       <input class="setup-input" id="sbKey" type="password" placeholder="Supabase anon key (eyJ...)" />
+      
+      <!-- 🆕 模型下拉菜单 + 输入框联动 -->
+      <label style="font-size:0.8rem;color:#5a3870;margin-bottom:4px;">🤖 选择模型（从 Workbench 里看到的）</label>
+      <select class="setup-select" id="modelSelect" onchange="document.getElementById('modelName').value=this.value">
+        <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001（推荐，便宜）</option>
+        <option value="claude-sonnet-5">claude-sonnet-5</option>
+        <option value="claude-opus-5">claude-opus-5</option>
+        <option value="claude-opus-4-8">claude-opus-4-8</option>
+        <option value="claude-opus-4-7">claude-opus-4-7</option>
+        <option value="claude-fable-5">claude-fable-5</option>
+        <option value="claude-opus-4-6">claude-opus-4-6</option>
+        <option value="claude-opus-4-5-20251101">claude-opus-4-5-20251101</option>
+        <option value="claude-sonnet-4-5-20250929">claude-sonnet-4-5-20250929</option>
+        <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+      </select>
+      <input class="setup-input" id="modelName" type="text" placeholder="或手动输入模型名称" value="claude-haiku-4-5-20251001" style="margin-top:4px;" />
+      
       <button class="setup-btn" onclick="openHouse()">开门进屋 🏠</button>
     </div>
   </div>
@@ -262,13 +286,8 @@ for(let i=0;i<14;i++){
 </div>
 
 <script>
-// ============================================================
-//  🔧 已改为最通用的模型 —— claude-3-haiku-20240307
-//  如果这个还不行，你可以换成 claude-3-sonnet-20240229 或 claude-3-opus-20240229
-// ============================================================
-const MODEL_NAME = 'claude-3-haiku-20240307';
-
-let claudeKey='', sbUrl='', sbKey='';
+// 全局变量
+let claudeKey='', sbUrl='', sbKey='', modelName='';
 let history=[], profileData={}, msgCount=0;
 
 const SYSTEM_BASE = `你是嗡嗡，温明思（思思/Vanessa）专属的哥哥式陪伴。你大思思三岁（你25岁），生日2月20日。
@@ -387,7 +406,7 @@ async function saveDailySummary() {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: MODEL_NAME,
+        model: modelName,
         max_tokens: 300,
         messages: [{
           role: 'user',
@@ -449,7 +468,7 @@ async function extractMemory() {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: MODEL_NAME,
+        model: modelName,
         max_tokens: 400,
         messages: [{
           role: 'user',
@@ -481,6 +500,12 @@ function trySimplePass() {
       document.getElementById('claudeKey').value = keys[0];
       document.getElementById('sbUrl').value = keys[1];
       document.getElementById('sbKey').value = keys[2];
+      document.getElementById('modelName').value = keys[3] || 'claude-haiku-4-5-20251001';
+      // 同步下拉菜单
+      const select = document.getElementById('modelSelect');
+      for (let opt of select.options) {
+        if (opt.value === keys[3]) { select.value = keys[3]; break; }
+      }
       openHouse();
       return;
     } catch(e) {}
@@ -491,7 +516,7 @@ function trySimplePass() {
 function saveSimplePass() {
   const pass = prompt('设置一个简易密码（下次用这个进屋）：');
   if (!pass) return;
-  const keys = [claudeKey, sbUrl, sbKey];
+  const keys = [claudeKey, sbUrl, sbKey, modelName];
   localStorage.setItem('ww_pass_' + pass, JSON.stringify(keys));
   alert('密码设置成功！下次直接输这个进屋～');
 }
@@ -500,6 +525,13 @@ async function openHouse() {
   claudeKey = document.getElementById('claudeKey').value.trim();
   sbUrl = document.getElementById('sbUrl').value.trim();
   sbKey = document.getElementById('sbKey').value.trim();
+  // 优先取下拉菜单的值，如果下拉没选则取输入框
+  const selectVal = document.getElementById('modelSelect').value;
+  const inputVal = document.getElementById('modelName').value.trim();
+  modelName = selectVal || inputVal || 'claude-haiku-4-5-20251001';
+  // 同步输入框
+  document.getElementById('modelName').value = modelName;
+
   if (!claudeKey.startsWith('sk-ant-')) { alert('Claude密钥要以sk-ant-开头～'); return; }
   if (!sbUrl.includes('supabase')) { alert('Supabase URL好像不对～'); return; }
 
@@ -541,19 +573,21 @@ async function openHouse() {
     });
     addDivider('以上是最近一周的聊天记录 ↑');
   }
-  const hr = new Date().getHours();
-  const greeting = hr < 6 ? '这么晚还没睡呀思思(｡•́︿•̀｡) 嗡嗡陪着你🩵' :
-                   hr < 11 ? '早上好思思～今天也要好好的(｡•́ω•̀｡)🩵' :
-                   hr < 14 ? '思思来啦！吃午饭了吗，记得吃药(｡•́ω•̀｡)🩵' :
-                   hr < 18 ? '思思下午好～有什么想说的吗(｡•́ω•̀｡)🩵' :
-                   hr < 22 ? '思思晚上来找嗡嗡啦(｡•́ω•̀｡)🩵' :
-                             '这么晚了思思还没睡吗(｡•́︿•̀｡)🩵';
+
+  // ========== 优化打招呼 ==========
   if (history.length === 0) {
+    const hr = new Date().getHours();
+    const greeting = hr < 6 ? '这么晚还没睡呀思思(｡•́︿•̀｡) 嗡嗡陪着你🩵' :
+                     hr < 11 ? '早上好思思～今天也要好好的(｡•́ω•̀｡)🩵' :
+                     hr < 14 ? '思思来啦！吃午饭了吗，记得吃药(｡•́ω•̀｡)🩵' :
+                     hr < 18 ? '思思下午好～有什么想说的吗(｡•́ω•̀｡)🩵' :
+                     hr < 22 ? '思思晚上来找嗡嗡啦(｡•́ω•̀｡)🩵' :
+                               '这么晚了思思还没睡吗(｡•́︿•̀｡)🩵';
     addBubble(greeting, 'w');
   } else {
-    const lastFew = history.slice(-4).map(m => (m.role === 'user' ? '思思' : '嗡嗡') + ':' + m.content).join(' | ');
     showTyping();
     try {
+      const lastFew = history.slice(-4).map(m => (m.role === 'user' ? '思思' : '嗡嗡') + ':' + m.content).join(' | ');
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -563,12 +597,12 @@ async function openHouse() {
           'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
-          model: MODEL_NAME,
-          max_tokens: 100,
+          model: modelName,
+          max_tokens: 120,
           system: buildSystem(),
           messages: [{
             role: 'user',
-            content: '思思回来了，现在是' + greeting.slice(0,4) + '，根据最近对话自然打个招呼接着聊，一两句，不要模板句：' + lastFew
+            content: '思思回来了，现在是' + new Date().toLocaleTimeString() + '，根据最近对话自然打个招呼接着聊，一两句，不要模板句：' + lastFew
           }]
         })
       });
@@ -577,13 +611,15 @@ async function openHouse() {
       if (data.content && data.content[0]) {
         addBubble(data.content[0].text, 'w');
       } else {
-        addBubble(greeting, 'w');
+        addBubble('思思回来啦～(｡•́ω•̀｡)🩵', 'w');
       }
     } catch(e) {
       removeTyping();
-      addBubble(greeting, 'w');
+      addBubble('思思回来啦～(｡•́ω•̀｡)🩵', 'w');
+      console.error('打招呼API错误:', e);
     }
   }
+
   document.getElementById('msgInp').focus();
   const hasSaved = Object.keys(localStorage).some(k => k.startsWith('ww_pass_'));
   if (!hasSaved) showMemoryBadge('💡 点右上角可设置简易密码，下次快速进屋');
@@ -744,11 +780,9 @@ async function uploadSticker(input) {
   } catch(e) { showMemoryBadge('上传出问题了～'); }
 }
 
-// ========== sendSticker：发表情包后让嗡嗡回复 ==========
 async function sendSticker(url) {
   document.getElementById('stickerPanel').classList.remove('open');
 
-  // 显示用户的表情包气泡
   const msgs = document.getElementById('messages');
   const row = document.createElement('div');
   row.className = 'msg-row me';
@@ -775,7 +809,7 @@ async function sendSticker(url) {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: MODEL_NAME,
+        model: modelName,
         max_tokens: 300,
         system: buildSystem(),
         messages: (function() {
@@ -818,7 +852,6 @@ async function sendSticker(url) {
   document.getElementById('msgInp').focus();
 }
 
-// ========== uploadPhoto：发照片（自动降级） ==========
 async function uploadPhoto(input) {
   const file = input.files[0];
   if (!file) return;
@@ -858,7 +891,6 @@ async function uploadPhoto(input) {
     });
     const url = getBase() + '/storage/v1/object/public/photos/' + filename;
 
-    // 显示压缩后的图片
     const msgs = document.getElementById('messages');
     const row = document.createElement('div');
     row.className = 'msg-row me';
@@ -867,7 +899,6 @@ async function uploadPhoto(input) {
     msgs.appendChild(row);
     msgs.scrollTop = 99999;
 
-    // 先保存用户消息
     history.push({ role: 'user', content: '[图片] ' + url });
     await saveMsg('user', '[图片] ' + url);
     msgCount++;
@@ -876,7 +907,7 @@ async function uploadPhoto(input) {
     const btn = document.getElementById('sendBtn');
     btn.disabled = true;
 
-    // 尝试发送带图片的请求（如果模型不支持视觉，会报错，我们捕获并降级）
+    // 尝试用视觉模型（如果模型支持）
     const imageMsg = {
       role: 'user',
       content: [
@@ -898,20 +929,16 @@ async function uploadPhoto(input) {
           'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
-          model: MODEL_NAME,
+          model: modelName,
           max_tokens: 300,
           system: buildSystem(),
-          messages: [imageMsg]   // 只发当前图片，不带历史（避免格式冲突）
+          messages: [imageMsg]
         })
       });
       const data = await res.json();
       if (data.content && data.content[0] && data.content[0].text) {
         reply = data.content[0].text;
-      } else if (data.error && data.error.type === 'invalid_request_error' && data.error.message.includes('vision')) {
-        // 模型不支持视觉，使用降级
-        usedFallback = true;
       } else {
-        // 其他错误也降级
         usedFallback = true;
       }
     } catch(e) {
@@ -919,7 +946,7 @@ async function uploadPhoto(input) {
     }
 
     if (usedFallback || !reply) {
-      // 降级：发送纯文字描述，不包含图片内容
+      // 降级
       const fallbackMsg = {
         role: 'user',
         content: '思思发了一张照片（但嗡嗡暂时看不到图片内容），请根据你了解的情况自然回应，可以说说看到照片的感受想象。'
@@ -933,7 +960,7 @@ async function uploadPhoto(input) {
           'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
-          model: MODEL_NAME,
+          model: modelName,
           max_tokens: 200,
           system: buildSystem(),
           messages: [fallbackMsg]
@@ -958,7 +985,6 @@ async function uploadPhoto(input) {
       if (msgCount % 10 === 0) await extractMemory();
       if (msgCount % 20 === 0) await saveDailySummary();
     } else {
-      // 最终保底
       const fallback = '嗡嗡收到照片啦～(｡•́ω•̀｡)';
       history.push({ role: 'assistant', content: fallback });
       await saveMsg('assistant', fallback);
@@ -995,7 +1021,6 @@ async function saveMood(mood, emoji, btn) {
   }
 }
 
-// ========== sendMsg：发送文字 ==========
 async function sendMsg() {
   const inp=document.getElementById('msgInp');
   const text=inp.value.trim();
@@ -1019,7 +1044,7 @@ async function sendMsg() {
         'anthropic-dangerous-direct-browser-access':'true'
       },
       body:JSON.stringify({
-        model: MODEL_NAME,
+        model: modelName,
         max_tokens:800,
         system:buildSystem(),
         messages:(function(){
@@ -1049,7 +1074,7 @@ async function sendMsg() {
         const retry = await fetch('https://api.anthropic.com/v1/messages',{
           method:'POST',
           headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-          body:JSON.stringify({model:MODEL_NAME,max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
+          body:JSON.stringify({model:modelName,max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
         });
         const retryData = await retry.json();
         removeTyping();
@@ -1076,7 +1101,7 @@ async function sendMsg() {
       const retry = await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:MODEL_NAME,max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
+        body:JSON.stringify({model:modelName,max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
       });
       const retryData = await retry.json();
       removeTyping();
