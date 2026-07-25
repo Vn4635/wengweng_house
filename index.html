@@ -650,22 +650,21 @@ document.addEventListener('keydown', e => {
 async function clearSession() {
   if (history.length === 0) return;
 
-  // 1. 删除 Supabase 中最新两条记录（按 created_at 倒序，获取 id）
+  // 1. 删除 Supabase 中最新一条记录
   try {
-    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.desc&limit=2`, {
+    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.desc&limit=1`, {
       headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
     });
     if (res.ok) {
-      const last2 = await res.json();
-      for (const r of last2) {
-        // 用 id 删除（如果 id 存在）
+      const last1 = await res.json();
+      if (last1.length > 0) {
+        const r = last1[0];
         if (r.id !== undefined && r.id !== null) {
           await fetch(`${getBase()}/rest/v1/memories?id=eq.${r.id}`, {
             method: 'DELETE',
             headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
           });
         } else {
-          // 兜底：用 created_at（但不推荐，时间戳可能不唯一）
           await fetch(`${getBase()}/rest/v1/memories?created_at=eq.${encodeURIComponent(r.created_at)}`, {
             method: 'DELETE',
             headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
@@ -673,26 +672,18 @@ async function clearSession() {
         }
       }
     }
-  } catch(e) { /* 忽略删除失败 */ }
+  } catch(e) {}
 
-  // 2. 从 history 中移除最后两条（如果有）
-  for (let i = 0; i < 2 && history.length > 0; i++) {
-    history.pop();
-  }
+  // 2. 从 history 中移除最后一条
+  history.pop();
 
-  // 3. 从 DOM 移除最后两个 .msg-row 元素
+  // 3. 从 DOM 移除最后一个 .msg-row
   const msgs = document.getElementById('messages');
   const rows = msgs.querySelectorAll('.msg-row');
-  let removed = 0;
-  for (let i = rows.length - 1; i >= 0 && removed < 2; i--) {
-    rows[i].remove();
-    removed++;
-  }
+  if (rows.length > 0) rows[rows.length - 1].remove();
 
-  // 如果 history 为空，自动重新显示开门消息（可选）
   if (history.length === 0) {
-    // 可以加一条提示，但保持简洁
-    showMemoryBadge('🗑 已清除最近两条消息');
+    showMemoryBadge('🗑 已清除最近一条消息');
   }
 }
 
