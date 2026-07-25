@@ -646,13 +646,11 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ====== 修复后的删除逻辑：使用 id 精确删除 ======
 async function clearSession() {
   if (history.length === 0) return;
-  history.pop();
-  const msgs = document.getElementById('messages');
-  const rows = msgs.querySelectorAll('.msg-row');
-  if (rows.length > 0) rows[rows.length - 1].remove();
-  // 用created_at删最新两条
+
+  // 1. 删除 Supabase 中最新两条记录（按 created_at 倒序，获取 id）
   try {
     const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.desc&limit=2`, {
       headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
@@ -660,13 +658,42 @@ async function clearSession() {
     if (res.ok) {
       const last2 = await res.json();
       for (const r of last2) {
-        await fetch(`${getBase()}/rest/v1/memories?created_at=eq.${encodeURIComponent(r.created_at)}`, {
-          method: 'DELETE',
-          headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-        });
+        // 用 id 删除（如果 id 存在）
+        if (r.id !== undefined && r.id !== null) {
+          await fetch(`${getBase()}/rest/v1/memories?id=eq.${r.id}`, {
+            method: 'DELETE',
+            headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+          });
+        } else {
+          // 兜底：用 created_at（但不推荐，时间戳可能不唯一）
+          await fetch(`${getBase()}/rest/v1/memories?created_at=eq.${encodeURIComponent(r.created_at)}`, {
+            method: 'DELETE',
+            headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+          });
+        }
       }
     }
-  } catch(e) {}
+  } catch(e) { /* 忽略删除失败 */ }
+
+  // 2. 从 history 中移除最后两条（如果有）
+  for (let i = 0; i < 2 && history.length > 0; i++) {
+    history.pop();
+  }
+
+  // 3. 从 DOM 移除最后两个 .msg-row 元素
+  const msgs = document.getElementById('messages');
+  const rows = msgs.querySelectorAll('.msg-row');
+  let removed = 0;
+  for (let i = rows.length - 1; i >= 0 && removed < 2; i--) {
+    rows[i].remove();
+    removed++;
+  }
+
+  // 如果 history 为空，自动重新显示开门消息（可选）
+  if (history.length === 0) {
+    // 可以加一条提示，但保持简洁
+    showMemoryBadge('🗑 已清除最近两条消息');
+  }
 }
 
 let stickerList = [];
@@ -753,6 +780,7 @@ async function sendSticker(url) {
   await saveMsg('user', `[表情包] ${url}`);
 }
 
+// ====== 修复图片上传：改用支持视觉的模型 ======
 async function uploadPhoto(input) {
   const file = input.files[0];
   if (!file) return;
@@ -784,7 +812,7 @@ async function uploadPhoto(input) {
       reader.readAsDataURL(file);
     });
 
-    // 同时上传到storage存档
+    // 同时上传到storage存档（非阻塞）
     const ext = file.name.split('.').pop();
     const filename = Date.now() + '.' + ext;
     fetch(getBase() + '/storage/v1/object/photos/' + filename, {
@@ -794,7 +822,7 @@ async function uploadPhoto(input) {
     });
     const url = getBase() + '/storage/v1/object/public/photos/' + filename;
 
-    // 在对话框显示图片
+    // 在对话框显示图片（压缩后的）
     const msgs = document.getElementById('messages');
     const row = document.createElement('div');
     row.className = 'msg-row me';
@@ -824,7 +852,7 @@ async function uploadPhoto(input) {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-6',
+        model: 'claude-3-5-sonnet-20241022',   // ✅ 支持视觉的模型
         max_tokens: 300,
         system: buildSystem(),
         messages: [...cleanHistory, imageMsg]
@@ -892,6 +920,7 @@ async function saveMood(mood, emoji, btn) {
   }
 }
 
+// ====== 修复 sendMsg：统一使用支持视觉的模型 ======
 async function sendMsg() {
   const inp=document.getElementById('msgInp');
   const text=inp.value.trim();
@@ -915,11 +944,11 @@ async function sendMsg() {
         'anthropic-dangerous-direct-browser-access':'true'
       },
       body:JSON.stringify({
-        model:'claude-sonnet-4-6',
+        model:'claude-3-5-sonnet-20241022',   // ✅ 支持视觉
         max_tokens:800,
         system:buildSystem(),
         messages:(function(){
-          const msgs = history.slice(-30).filter(m => m.content && m.content.trim());
+          const msgs = history.slice(-30).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
           const clean = [];
           for (const m of msgs) {
             if (clean.length === 0) { if (m.role === 'user') clean.push(m); continue; }
@@ -936,11 +965,9 @@ async function sendMsg() {
       history.push({role:'assistant',content:reply});
       await saveMsg('assistant',reply);
       addBubble(reply,'w');
-      // 每10条提炼一次记忆
       if(msgCount % 10 === 0) {
         await extractMemory();
       }
-      // 每20条生成一次当天摘要
       if(msgCount % 20 === 0) {
         await saveDailySummary();
       }
@@ -952,7 +979,7 @@ async function sendMsg() {
         const retry = await fetch('https://api.anthropic.com/v1/messages',{
           method:'POST',
           headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-          body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
+          body:JSON.stringify({model:'claude-3-5-sonnet-20241022',max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
         });
         const retryData = await retry.json();
         removeTyping();
@@ -980,7 +1007,7 @@ async function sendMsg() {
       const retry = await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
+        body:JSON.stringify({model:'claude-3-5-sonnet-20241022',max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
       });
       const retryData = await retry.json();
       removeTyping();
