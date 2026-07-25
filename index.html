@@ -767,37 +767,8 @@ async function sendSticker(url) {
   row.innerHTML = `<div class="av av-s">🌸</div><div class="msg-wrap"><img src="${url}" style="max-width:150px;border-radius:12px;cursor:pointer" onclick="window.open('${url}')"><div class="msg-time">${t}</div></div>`;
   msgs.appendChild(row);
   msgs.scrollTop = 99999;
-  const stickerContent = '[表情包] ' + url;
-  history.push({role:'user', content: stickerContent});
-  await saveMsg('user', stickerContent);
-  // 让嗡嗡回应表情包
-  showTyping();
-  try {
-    const cleanH = history.slice(-20).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': claudeKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 200,
-        system: buildSystem(),
-        messages: [...cleanH.slice(0,-1), {role:'user', content:'思思发了一个表情包给嗡嗡，自然地回应一下～'}]
-      })
-    });
-    const data = await res.json();
-    removeTyping();
-    if (data.content && data.content[0] && data.content[0].text) {
-      const reply = data.content[0].text;
-      history.push({role:'assistant', content: reply});
-      await saveMsg('assistant', reply);
-      addBubble(reply, 'w');
-    }
-  } catch(e) { removeTyping(); }
+  history.push({role:'user', content:`[表情包] ${url}`});
+  await saveMsg('user', `[表情包] ${url}`);
 }
 
 // ====== 修复图片上传：改用支持视觉的模型 ======
