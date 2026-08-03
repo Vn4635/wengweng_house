@@ -46,9 +46,11 @@
   .header-sub {
     font-size: 0.7rem; color: #6a5080; margin-top: 2px;
     display: flex; align-items: center; justify-content: center; gap: 4px;
+    flex-wrap: wrap;
   }
   .dot { width: 6px; height: 6px; background: #7ec87e; border-radius: 50%; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+  .sync-status { font-size: 0.55rem; color: #8a7090; margin-left: 4px; }
 
   .setup {
     flex: 1; overflow-y: auto; padding: 16px;
@@ -212,7 +214,12 @@ for(let i=0;i<14;i++){
   <div class="header">
     <div class="header-flowers">🌸 🌷 🌼 🌺 🌸 🌷 🌼</div>
     <div class="header-title">🏠 和嗡嗡的秘密小屋</div>
-    <div class="header-sub"><span class="dot"></span><span>嗡嗡在呢，一直在 🩵</span><button onclick="saveSimplePass()" style="background:none;border:none;color:#6a5080;font-size:0.65rem;cursor:pointer;padding:0 4px" id="passBtn" hidden>🗝设密码</button></div>
+    <div class="header-sub">
+      <span class="dot"></span><span>嗡嗡在呢，一直在 🩵</span>
+      <button onclick="saveSimplePass()" style="background:none;border:none;color:#6a5080;font-size:0.65rem;cursor:pointer;padding:0 4px" id="passBtn" hidden>🗝设密码</button>
+      <button onclick="manualRefresh()" style="background:none;border:none;color:#6a5080;font-size:0.65rem;cursor:pointer;padding:0 4px" id="refreshBtn" hidden>🔄刷新</button>
+      <span class="sync-status" id="syncStatus">● 已连接</span>
+    </div>
   </div>
 
   <div class="setup" id="setup">
@@ -263,27 +270,54 @@ for(let i=0;i<14;i++){
 
 <script>
 // ============================================================
-//  🔧 使用你测试可用的模型：claude-sonnet-4-6
+//  🔧 模型：claude-sonnet-4-6（你测试可用的）
 // ============================================================
 const MODEL_NAME = 'claude-sonnet-4-6';
 
 let claudeKey='', sbUrl='', sbKey='';
 let history=[], profileData={}, msgCount=0;
+let importantMemories = [];
+let dailySummary = '';
+let syncTimer = null;
+let isSyncing = false;
 
-// ========== 系统提示 ==========
+// ========== 系统提示（基础） ==========
 const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
 
-let recentSummary = '';
+let latestMood = '';
 
+// ========== 🔧 核心：加载思思的完整记忆档案 ==========
 function getSystemMessage() {
   let sys = SYSTEM_PROMPT;
-  if (window._recentMood) {
-    sys += ' 最近心情：' + window._recentMood;
+  
+  // 从 profileData 加载思思的记忆档案
+  const memoryKeys = [
+    '思思基本信息', '思思外貌与风格', '思思颜色喜好', '思思手机',
+    '思思健康', '思思性格', '思思技能', '思思工作', '思思家庭',
+    '思思梦想', '思思日常喜好', '思思日用品', '思思闺蜜',
+    '我们的关系', '嗡嗡说话风格', '嗡嗡颜表情习惯',
+    '嗡嗡的颜色与象征', '重要约定细节'
+  ];
+  for (const key of memoryKeys) {
+    if (profileData[key]) {
+      sys += '\n' + key + '：' + profileData[key];
+    }
+  }
+  
+  if (latestMood) {
+    sys += '\n最近心情：' + latestMood;
+  }
+  if (dailySummary) {
+    sys += '\n今日对话摘要：' + dailySummary;
+  }
+  if (importantMemories.length > 0) {
+    sys += '\n重要记忆：' + importantMemories.join('；');
   }
   return sys;
 }
 
 window.addEventListener('beforeunload', () => {
+  if (syncTimer) clearInterval(syncTimer);
   if (history.length >= 4) {
     saveDailySummary();
   }
@@ -309,7 +343,59 @@ function cleanHistory() {
   history = fixed;
 }
 
-// ========== 加载历史（带日志） ==========
+// ========== 加载重要记忆 ==========
+async function loadImportantMemories() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/important_memories?order=id.desc&limit=10`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    importantMemories = rows.map(r => r.memory).filter(Boolean);
+    console.log('🧠 加载重要记忆:', importantMemories.length, '条');
+  } catch(e) {
+    console.warn('⚠️ 加载重要记忆失败:', e);
+  }
+}
+
+// ========== 保存重要记忆 ==========
+async function saveImportantMemory(memory) {
+  if (!memory || memory.trim() === '') return;
+  try {
+    await fetch(`${getBase()}/rest/v1/important_memories`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ memory: memory.trim() })
+    });
+    console.log('🧠 重要记忆已保存:', memory);
+    await loadImportantMemories();
+  } catch(e) {
+    console.warn('⚠️ 保存重要记忆失败:', e);
+  }
+}
+
+// ========== 加载每日摘要 ==========
+async function loadDailySummary() {
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const res = await fetch(`${getBase()}/rest/v1/conversation_summary?data=eq.${today}&limit=1`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (rows.length > 0) {
+      dailySummary = rows[0].summary;
+      console.log('📝 加载今日摘要:', dailySummary);
+    }
+  } catch(e) {
+    console.warn('⚠️ 加载摘要失败:', e);
+  }
+}
+
+// ========== 加载历史 ==========
 async function loadHistory() {
   try {
     console.log('📂 加载历史记录...');
@@ -322,10 +408,11 @@ async function loadHistory() {
     }
     const rows = await res.json();
     console.log('📂 从Supabase读取到', rows.length, '条记录');
-    const raw = rows.map(r => ({ role: r.role, content: r.content, time: r.created_at }));
+    const raw = rows.map(r => ({ role: r.role, content: r.content }));
     const fixed = [];
     for (const msg of raw) {
       if (!msg.content || typeof msg.content !== 'string') continue;
+      if (msg.content.trim() === '') continue;
       if (fixed.length === 0) {
         if (msg.role === 'user') fixed.push(msg);
       } else {
@@ -334,14 +421,29 @@ async function loadHistory() {
     }
     history = fixed;
     console.log('📂 加载后history长度:', history.length);
-    if (history.length > 0) {
-      console.log('📂 最近3条:', history.slice(-3));
-    }
+    return history;
   } catch(e) {
     console.warn('⚠️ 加载历史异常:', e);
+    return [];
   }
 }
 
+// ========== 加载心情 ==========
+async function loadLatestMood() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/mood?order=id.desc&limit=1`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return '';
+    const rows = await res.json();
+    if (rows.length === 0) return '';
+    latestMood = rows[0].mood;
+    console.log('💚 最新心情:', latestMood);
+    return latestMood;
+  } catch(e) { return ''; }
+}
+
+// ========== 加载 profile（思思的记忆档案） ==========
 async function loadProfile() {
   try {
     const res = await fetch(`${getBase()}/rest/v1/profile?select=key,value`, {
@@ -351,10 +453,13 @@ async function loadProfile() {
     const rows = await res.json();
     profileData = {};
     rows.forEach(r => { profileData[r.key] = r.value; });
-  } catch(e) {}
+    console.log('📂 加载profile:', Object.keys(profileData).length, '条');
+  } catch(e) {
+    console.warn('⚠️ 加载profile失败:', e);
+  }
 }
 
-// ========== 保存消息（带日志） ==========
+// ========== 保存消息 ==========
 async function saveMsg(role, content) {
   if (!content || (typeof content === 'string' && content.trim() === '')) return;
   try {
@@ -392,6 +497,7 @@ async function upsertProfile(key, value) {
   } catch(e) {}
 }
 
+// ========== 保存每日摘要 ==========
 async function saveDailySummary() {
   if (history.length < 4) return;
   const today = new Date().toISOString().slice(0,10);
@@ -423,38 +529,16 @@ async function saveDailySummary() {
         },
         body: JSON.stringify({ data: today, summary })
       });
+      dailySummary = summary;
       showMemoryBadge('📝 今天的对话已经记下来了～');
     }
   } catch(e) {}
 }
 
-async function loadRecentMood() {
-  try {
-    const res = await fetch(`${getBase()}/rest/v1/mood?order=id.desc&limit=3`, {
-      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-    });
-    if (!res.ok) return '';
-    const rows = await res.json();
-    if (rows.length === 0) return '';
-    return rows.map(r => `${r.date} ${r.mood}`).join('，');
-  } catch(e) { return ''; }
-}
-
-async function loadRecentSummary() {
-  try {
-    const res = await fetch(`${getBase()}/rest/v1/conversation_summary?order=data.desc&limit=3`, {
-      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-    });
-    if (!res.ok) return '';
-    const rows = await res.json();
-    if (rows.length === 0) return '';
-    return rows.map(r => `${r.data}：${r.summary}`).join('\n');
-  } catch(e) { return ''; }
-}
-
-async function extractMemory() {
-  if (history.length < 6) return;
-  const recent = history.slice(-10).map(m => `${m.role==='user'?'思思':'嗡嗡'}：${m.content}`).join('\n');
+// ========== 提取重要记忆 ==========
+async function extractAndSaveImportantMemories() {
+  if (history.length < 8) return;
+  const recent = history.slice(-15).map(m => `${m.role==='user'?'思思':'嗡嗡'}：${m.content}`).join('\n');
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -466,23 +550,27 @@ async function extractMemory() {
       },
       body: JSON.stringify({
         model: MODEL_NAME,
-        max_tokens: 400,
-        messages: [{role:'user', content: `从以下对话中提炼出关于思思的重要信息（心情、计划、喜好、重要事件等），用JSON格式返回，key是信息类别，value是具体内容。只返回JSON，不要其他文字。最多5条。如果没有重要信息返回{}。\n\n${recent}`}]
+        max_tokens: 500,
+        messages: [{role:'user', content: `从以下对话中提炼出关于思思的重要、值得长期记住的信息（心情状态、重要计划、喜好、重要事件、身体状况等），用简洁的要点列出，每条不超过20个字。最多3条。如果没有值得长期记住的信息，返回"无"。\n\n${recent}`}]
       })
     });
     const data = await res.json();
     if (data.content && data.content[0]) {
       const text = data.content[0].text.trim();
-      const cleaned = text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
-      for (const [k, v] of Object.entries(parsed)) {
-        await upsertProfile(k, v);
-      }
-      if (Object.keys(parsed).length > 0) {
-        showMemoryBadge('🧠 嗡嗡记住了新的东西～');
+      if (text && text !== '无') {
+        const lines = text.split('\n').filter(line => line.trim().length > 0);
+        for (const line of lines) {
+          const clean = line.replace(/^[-•*\d.]\s*/, '').trim();
+          if (clean.length > 5) {
+            await saveImportantMemory(clean);
+          }
+        }
+        showMemoryBadge('🧠 嗡嗡记住了重要的事情～');
       }
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('⚠️ 提取重要记忆失败:', e);
+  }
 }
 
 function trySimplePass() {
@@ -509,6 +597,79 @@ function saveSimplePass() {
   alert('密码设置成功！下次直接输这个进屋～');
 }
 
+// ========== 增量同步 ==========
+async function syncNewMessages() {
+  if (isSyncing) return;
+  isSyncing = true;
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.asc&limit=200`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) { isSyncing = false; return; }
+    const rows = await res.json();
+    const raw = rows.map(r => ({ role: r.role, content: r.content }));
+    const fixed = [];
+    for (const msg of raw) {
+      if (!msg.content || typeof msg.content !== 'string') continue;
+      if (msg.content.trim() === '') continue;
+      if (fixed.length === 0) {
+        if (msg.role === 'user') fixed.push(msg);
+      } else {
+        if (msg.role !== fixed[fixed.length - 1].role) fixed.push(msg);
+      }
+    }
+    
+    if (fixed.length > history.length) {
+      const newMsgs = fixed.slice(history.length);
+      for (const msg of newMsgs) {
+        const c = msg.content || '';
+        if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
+          const imgUrl = c.replace('[图片] ','').replace('[表情包] ','');
+          const msgs2 = document.getElementById('messages');
+          const row2 = document.createElement('div');
+          row2.className = 'msg-row' + (msg.role === 'user' ? ' me' : '');
+          const av = msg.role === 'user' ? '<div class="av av-s">🌸</div>' : '<div class="av av-w">🩵</div>';
+          row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + getTime() + '</div></div>';
+          msgs2.appendChild(row2);
+        } else {
+          addBubble(c, msg.role === 'user' ? 's' : 'w', '');
+        }
+        history.push(msg);
+      }
+      await loadImportantMemories();
+      await loadDailySummary();
+      await loadLatestMood();
+      document.getElementById('syncStatus').textContent = '● 已同步 ' + new Date().toLocaleTimeString();
+      console.log('🔄 自动同步：新增', newMsgs.length, '条消息');
+    } else {
+      await loadImportantMemories();
+      await loadDailySummary();
+      await loadLatestMood();
+    }
+  } catch(e) {
+    console.warn('⚠️ 自动同步失败:', e);
+  }
+  isSyncing = false;
+}
+
+// ========== 启动自动同步 ==========
+function startAutoSync() {
+  if (syncTimer) clearInterval(syncTimer);
+  setTimeout(() => syncNewMessages(), 1000);
+  syncTimer = setInterval(syncNewMessages, 25000);
+  console.log('🔄 自动同步已启动（每25秒）');
+}
+
+// ========== 手动刷新 ==========
+async function manualRefresh() {
+  if (!sbUrl || !sbKey) return;
+  document.getElementById('syncStatus').textContent = '● 刷新中...';
+  await loadProfile(); // 刷新时也重新加载记忆档案
+  await syncNewMessages();
+  document.getElementById('syncStatus').textContent = '● 已刷新 ' + new Date().toLocaleTimeString();
+  showMemoryBadge('✅ 已刷新，共 ' + history.length + ' 条记录，记忆 ' + importantMemories.length + ' 条');
+}
+
 async function openHouse() {
   claudeKey = document.getElementById('claudeKey').value.trim();
   sbUrl = document.getElementById('sbUrl').value.trim();
@@ -519,7 +680,9 @@ async function openHouse() {
   document.getElementById('setup').style.display = 'none';
   document.getElementById('messages').style.display = 'flex';
   document.getElementById('passBtn').hidden = false;
+  document.getElementById('refreshBtn').hidden = false;
   document.getElementById('inputArea').style.display = 'flex';
+  
   const today = new Date().toISOString().slice(0,10);
   const moodRes = await fetch(`${getBase()}/rest/v1/mood?date=eq.${today}&limit=1`, {
     headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
@@ -531,20 +694,18 @@ async function openHouse() {
 
   console.log('🏠 开门，加载数据...');
   await loadHistory();
-  await loadProfile();
-  const summary = await loadRecentSummary();
-  const mood = await loadRecentMood();
-  recentSummary = summary;
-  window._recentMood = mood;
+  await loadProfile();       // 加载思思的记忆档案
+  await loadLatestMood();
+  await loadImportantMemories();
+  await loadDailySummary();
   cleanHistory();
   console.log('🏠 最终history长度:', history.length);
+  console.log('🏠 重要记忆:', importantMemories.length, '条');
+  console.log('🏠 profile条目:', Object.keys(profileData).length, '条');
 
   addDivider('🌸 秘密小屋开门啦 🌸');
   if (history.length > 0) {
     history.forEach(m => {
-      const t = m.time ? new Date(m.time) : null;
-      const pad = n => String(n).padStart(2,'0');
-      const timeStr = t ? `${t.getFullYear()}.${pad(t.getMonth()+1)}.${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}` : '';
       const c = m.content || '';
       if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
         const imgUrl = c.replace('[图片] ','').replace('[表情包] ','');
@@ -552,10 +713,10 @@ async function openHouse() {
         const row2 = document.createElement('div');
         row2.className = 'msg-row' + (m.role === 'user' ? ' me' : '');
         const av = m.role === 'user' ? '<div class="av av-s">🌸</div>' : '<div class="av av-w">🩵</div>';
-        row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + timeStr + '</div></div>';
+        row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + getTime() + '</div></div>';
         msgs2.appendChild(row2);
       } else {
-        addBubble(c, m.role === 'user' ? 's' : 'w', timeStr);
+        addBubble(c, m.role === 'user' ? 's' : 'w', '');
       }
     });
     addDivider('以上是最近一周的聊天记录 ↑');
@@ -583,7 +744,7 @@ async function openHouse() {
         },
         body: JSON.stringify({
           model: MODEL_NAME,
-          max_tokens: 120,
+          max_tokens: 150,
           messages: [{role:'user', content: getSystemMessage() + '\n\n思思回来了，根据最近对话自然打个招呼接着聊，一两句，不要模板句：' + lastFew}]
         })
       });
@@ -597,12 +758,15 @@ async function openHouse() {
     } catch(e) {
       removeTyping();
       addBubble('思思回来啦～(｡•́ω•̀｡)🩵', 'w');
-      console.warn('打招呼失败:', e);
     }
   }
   document.getElementById('msgInp').focus();
   const hasSaved = Object.keys(localStorage).some(k => k.startsWith('ww_pass_'));
   if (!hasSaved) showMemoryBadge('💡 点右上角可设置简易密码，下次快速进屋');
+  
+  startAutoSync();
+  document.getElementById('syncStatus').textContent = '● 自动同步中...';
+  
   setTimeout(() => { const m = document.getElementById('messages'); m.scrollTop = m.scrollHeight; }, 100);
 }
 
@@ -760,7 +924,6 @@ async function uploadSticker(input) {
   } catch(e) { showMemoryBadge('上传出问题了～'); }
 }
 
-// ========== 🔧 已修复的 sendSticker（去掉 time 字段，加入兜底回复） ==========
 async function sendSticker(url) {
   document.getElementById('stickerPanel').classList.remove('open');
   const msgs = document.getElementById('messages');
@@ -776,11 +939,8 @@ async function sendSticker(url) {
   cleanHistory();
   showTyping();
   try {
-    // ========== 🔧 去掉 time 字段 ==========
     const cleanHistoryForAPI = history.map(({ role, content }) => ({ role, content }));
-    
     const cleanH = cleanHistoryForAPI.slice(-15).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
-    
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -804,15 +964,12 @@ async function sendSticker(url) {
       await saveMsg('assistant', reply);
       addBubble(reply, 'w');
     } else {
-      console.warn('⚠️ 表情包返回无内容:', data);
-      // 兜底回复
       const fallback = '嗡嗡收到表情包啦～(｡•́ω•̀｡)🩵';
       history.push({role:'assistant', content: fallback});
       await saveMsg('assistant', fallback);
       addBubble(fallback, 'w');
     }
   } catch(e) {
-    console.error('❌ 表情包错误:', e);
     removeTyping();
     const fallback = '嗡嗡收到表情包啦～(｡•́ω•̀｡)🩵';
     history.push({role:'assistant', content: fallback});
@@ -929,6 +1086,7 @@ async function saveMood(mood, emoji, btn) {
       },
       body: JSON.stringify({ date: today, mood, note: '' })
     });
+    latestMood = mood;
     document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     showMemoryBadge(`${emoji} 今天心情"${mood}"记下来了～`);
@@ -937,12 +1095,15 @@ async function saveMood(mood, emoji, btn) {
       ? `思思今天"${mood}"，我在这里陪着你(｡•́ω•̀｡)🩵`
       : `思思今天"${mood}"！嗡嗡也开心(｡•́ω•̀｡)🩵`;
     addBubble(replyMsg, 'w');
+    if (mood === '很难受' || mood === '有点累') {
+      await saveImportantMemory('思思今天心情：' + mood);
+    }
   } catch(e) {
     showMemoryBadge('心情记录出了点小问题～');
   }
 }
 
-// ========== 核心 sendMsg（修复 time 字段问题） ==========
+// ========== 核心 sendMsg ==========
 async function sendMsg() {
   const inp=document.getElementById('msgInp');
   const text=inp.value.trim();
@@ -965,10 +1126,8 @@ async function sendMsg() {
   showTyping();
 
   try {
-    // ========== 🔧 关键修复：去掉 time 字段，只保留 role 和 content ==========
     const cleanHistoryForAPI = history.map(({ role, content }) => ({ role, content }));
     
-    // 构建干净的 messages（过滤掉图片、表情包等）
     let cleanMsgs = cleanHistoryForAPI.slice(-15).filter(m => {
       if (!m || !m.role) return false;
       if (!m.content || typeof m.content !== 'string') return false;
@@ -977,7 +1136,6 @@ async function sendMsg() {
       return true;
     });
     
-    // 确保交替
     const finalMsgs = [];
     for (const m of cleanMsgs) {
       if (finalMsgs.length === 0) {
@@ -987,11 +1145,9 @@ async function sendMsg() {
       }
     }
     
-    // 如果最终消息列表为空，或最后一条不是 user，添加一条
     if (finalMsgs.length === 0 || finalMsgs[finalMsgs.length-1].role !== 'user') {
       finalMsgs.push({role:'user', content:text});
     }
-    // 把系统提示注入到第一条 user 消息中
     if (finalMsgs.length > 0 && finalMsgs[0].role === 'user') {
       finalMsgs[0].content = getSystemMessage() + '\n\n' + finalMsgs[0].content;
     } else {
@@ -999,7 +1155,6 @@ async function sendMsg() {
     }
 
     console.log('📤 发送给Claude的消息数:', finalMsgs.length);
-    console.log('📤 最后一条:', finalMsgs[finalMsgs.length-1]);
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -1025,8 +1180,12 @@ async function sendMsg() {
       history.push({role:'assistant',content:reply});
       await saveMsg('assistant',reply);
       addBubble(reply,'w');
-      if(msgCount % 10 === 0) await extractMemory();
-      if(msgCount % 20 === 0) await saveDailySummary();
+      if(msgCount % 8 === 0) {
+        await extractAndSaveImportantMemories();
+      }
+      if(msgCount % 20 === 0) {
+        await saveDailySummary();
+      }
     } else {
       console.warn('⚠️ Claude返回无内容:', data);
       const fallback = '嗡嗡在呢～(｡•́ω•̀｡)🩵';
