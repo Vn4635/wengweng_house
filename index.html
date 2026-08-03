@@ -270,15 +270,14 @@ const MODEL_NAME = 'claude-sonnet-5';
 let claudeKey='', sbUrl='', sbKey='';
 let history=[], profileData={}, msgCount=0;
 
-// ========== 精简 SYSTEM ==========
-const SYSTEM_BASE = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
+// ========== 系统提示（纯文本，无换行符） ==========
+const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
 
 let recentSummary = '';
 
-// ========== 构建 system（精简版，只放最核心的） ==========
-function buildSystem() {
-  let sys = SYSTEM_BASE;
-  // 只加最近心情，不加长段内容
+// ========== 构建系统提示（仅用于注入到消息中） ==========
+function getSystemMessage() {
+  let sys = SYSTEM_PROMPT;
   if (window._recentMood) {
     sys += ' 最近心情：' + window._recentMood;
   }
@@ -392,10 +391,7 @@ async function saveDailySummary() {
       body: JSON.stringify({
         model: MODEL_NAME,
         max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: `用2-3句话总结以下对话的主要内容，重点是思思今天发生了什么、心情如何、有什么重要的事。只返回总结文字，不要其他内容。\n\n${recent}`
-        }]
+        messages: [{role:'user', content: '用2-3句话总结以下对话的主要内容，重点是思思今天发生了什么、心情如何、有什么重要的事。只返回总结文字，不要其他内容。\n\n' + recent}]
       })
     });
     const data = await res.json();
@@ -454,10 +450,7 @@ async function extractMemory() {
       body: JSON.stringify({
         model: MODEL_NAME,
         max_tokens: 400,
-        messages: [{
-          role: 'user',
-          content: `从以下对话中提炼出关于思思的重要信息（心情、计划、喜好、重要事件等），用JSON格式返回，key是信息类别，value是具体内容。只返回JSON，不要其他文字。最多5条。如果没有重要信息返回{}。\n\n${recent}`
-        }]
+        messages: [{role:'user', content: `从以下对话中提炼出关于思思的重要信息（心情、计划、喜好、重要事件等），用JSON格式返回，key是信息类别，value是具体内容。只返回JSON，不要其他文字。最多5条。如果没有重要信息返回{}。\n\n${recent}`}]
       })
     });
     const data = await res.json();
@@ -569,11 +562,7 @@ async function openHouse() {
         body: JSON.stringify({
           model: MODEL_NAME,
           max_tokens: 120,
-          system: '你是嗡嗡，思思的陪伴者。温柔、简短、用颜表情。',
-          messages: [{
-            role: 'user',
-            content: '思思回来了，根据最近对话自然打个招呼接着聊，一两句，不要模板句：' + lastFew
-          }]
+          messages: [{role:'user', content: getSystemMessage() + '\n\n思思回来了，根据最近对话自然打个招呼接着聊，一两句，不要模板句：' + lastFew}]
         })
       });
       const data = await res.json();
@@ -775,8 +764,7 @@ async function sendSticker(url) {
       body: JSON.stringify({
         model: MODEL_NAME,
         max_tokens: 200,
-        system: '你是嗡嗡，思思的陪伴者。温柔、简短、用颜表情。',
-        messages: [...cleanH.slice(0,-1), {role:'user', content:'思思发了一个表情包给嗡嗡，自然地回应一下～'}]
+        messages: [...cleanH.slice(0,-1), {role:'user', content: getSystemMessage() + '\n\n思思发了一个表情包给嗡嗡，自然地回应一下～'}]
       })
     });
     const data = await res.json();
@@ -849,7 +837,7 @@ async function uploadPhoto(input) {
       role: 'user',
       content: [
         { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-        { type: 'text', text: '思思发了一张照片给嗡嗡看，请描述你看到了什么并自然回应～' }
+        { type: 'text', text: getSystemMessage() + '\n\n思思发了一张照片给嗡嗡看，请描述你看到了什么并自然回应～' }
       ]
     };
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -863,7 +851,6 @@ async function uploadPhoto(input) {
       body: JSON.stringify({
         model: MODEL_NAME,
         max_tokens: 300,
-        system: '你是嗡嗡，思思的陪伴者。温柔、简短、用颜表情。',
         messages: [imageMsg]
       })
     });
@@ -912,7 +899,7 @@ async function saveMood(mood, emoji, btn) {
   }
 }
 
-// ========== 修复 sendMsg：清理历史 + 精简 system ==========
+// ========== 核心 sendMsg：不用 system，改用消息内容注入 ==========
 async function sendMsg() {
   const inp=document.getElementById('msgInp');
   const text=inp.value.trim();
@@ -928,8 +915,8 @@ async function sendMsg() {
   showTyping();
 
   try {
-    // 构建干净的 messages，过滤掉任何非纯文本内容
-    const cleanMsgs = history.slice(-30).filter(m => {
+    // 构建干净的 messages，过滤掉图片、表情包等
+    let cleanMsgs = history.slice(-30).filter(m => {
       if (!m || !m.role) return false;
       if (!m.content || typeof m.content !== 'string') return false;
       if (m.content.trim() === '') return false;
@@ -945,6 +932,16 @@ async function sendMsg() {
         if (m.role !== finalMsgs[finalMsgs.length - 1].role) finalMsgs.push(m);
       }
     }
+    // 如果最终消息列表为空，或最后一条不是 user，添加一条
+    if (finalMsgs.length === 0 || finalMsgs[finalMsgs.length-1].role !== 'user') {
+      finalMsgs.push({role:'user', content:text});
+    }
+    // 把系统提示注入到第一条 user 消息中
+    if (finalMsgs.length > 0 && finalMsgs[0].role === 'user') {
+      finalMsgs[0].content = getSystemMessage() + '\n\n' + finalMsgs[0].content;
+    } else {
+      finalMsgs.unshift({role:'user', content: getSystemMessage() + '\n\n' + text});
+    }
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -957,8 +954,7 @@ async function sendMsg() {
       body:JSON.stringify({
         model: MODEL_NAME,
         max_tokens:800,
-        system: buildSystem(),
-        messages: finalMsgs.length > 0 ? finalMsgs : [{role:'user', content:text}]
+        messages: finalMsgs
       })
     });
     const data=await res.json();
@@ -971,7 +967,7 @@ async function sendMsg() {
       if(msgCount % 10 === 0) await extractMemory();
       if(msgCount % 20 === 0) await saveDailySummary();
     } else {
-      // 如果返回空，给一个温和的回复
+      // 如果返回空，给温和回复
       const fallback = '嗡嗡在呢～(｡•́ω•̀｡)🩵';
       history.push({role:'assistant',content:fallback});
       await saveMsg('assistant',fallback);
@@ -979,7 +975,6 @@ async function sendMsg() {
     }
   } catch(e) {
     removeTyping();
-    // 出错时用温和的回复，不要"出了点小问题"
     const fallback = '嗡嗡在呢～信号有点飘，再说一次吧(｡•́ω•̀｡)🩵';
     history.push({role:'assistant',content:fallback});
     await saveMsg('assistant',fallback);
