@@ -274,11 +274,12 @@ let history=[], profileData={}, msgCount=0;
 const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
 
 let recentSummary = '';
+let latestMood = '';
 
 function getSystemMessage() {
   let sys = SYSTEM_PROMPT;
-  if (window._recentMood) {
-    sys += ' 最近心情：' + window._recentMood;
+  if (latestMood) {
+    sys += ' 最近心情：' + latestMood;
   }
   return sys;
 }
@@ -309,7 +310,7 @@ function cleanHistory() {
   history = fixed;
 }
 
-// ========== 加载历史（带日志） ==========
+// ========== 加载历史 ==========
 async function loadHistory() {
   try {
     console.log('📂 加载历史记录...');
@@ -351,10 +352,13 @@ async function loadProfile() {
     const rows = await res.json();
     profileData = {};
     rows.forEach(r => { profileData[r.key] = r.value; });
+    // 从 profile 里恢复最近心情和摘要
+    if (profileData['last_mood']) latestMood = profileData['last_mood'];
+    if (profileData['last_summary']) recentSummary = profileData['last_summary'];
   } catch(e) {}
 }
 
-// ========== 保存消息（带日志） ==========
+// ========== 保存消息 ==========
 async function saveMsg(role, content) {
   if (!content || (typeof content === 'string' && content.trim() === '')) return;
   try {
@@ -392,6 +396,20 @@ async function upsertProfile(key, value) {
   } catch(e) {}
 }
 
+// ========== 保存心情到 Supabase（跨设备同步） ==========
+async function saveMoodToProfile(mood) {
+  latestMood = mood;
+  await upsertProfile('last_mood', mood);
+  console.log('💾 心情已同步到云端');
+}
+
+// ========== 保存摘要到 Supabase（跨设备同步） ==========
+async function saveSummaryToProfile(summary) {
+  recentSummary = summary;
+  await upsertProfile('last_summary', summary);
+  console.log('💾 摘要已同步到云端');
+}
+
 async function saveDailySummary() {
   if (history.length < 4) return;
   const today = new Date().toISOString().slice(0,10);
@@ -423,6 +441,8 @@ async function saveDailySummary() {
         },
         body: JSON.stringify({ data: today, summary })
       });
+      // 同时保存到 profile 以便跨设备同步
+      await saveSummaryToProfile(summary);
       showMemoryBadge('📝 今天的对话已经记下来了～');
     }
   } catch(e) {}
@@ -436,7 +456,12 @@ async function loadRecentMood() {
     if (!res.ok) return '';
     const rows = await res.json();
     if (rows.length === 0) return '';
-    return rows.map(r => `${r.date} ${r.mood}`).join('，');
+    const moodStr = rows.map(r => `${r.date} ${r.mood}`).join('，');
+    // 把最新心情保存到 profile 同步
+    if (rows.length > 0) {
+      await saveMoodToProfile(rows[0].mood);
+    }
+    return moodStr;
   } catch(e) { return ''; }
 }
 
@@ -448,7 +473,11 @@ async function loadRecentSummary() {
     if (!res.ok) return '';
     const rows = await res.json();
     if (rows.length === 0) return '';
-    return rows.map(r => `${r.data}：${r.summary}`).join('\n');
+    const summaryStr = rows.map(r => `${r.data}：${r.summary}`).join('\n');
+    if (rows.length > 0) {
+      await saveSummaryToProfile(rows[0].summary);
+    }
+    return summaryStr;
   } catch(e) { return ''; }
 }
 
@@ -534,10 +563,12 @@ async function openHouse() {
   await loadProfile();
   const summary = await loadRecentSummary();
   const mood = await loadRecentMood();
-  recentSummary = summary;
-  window._recentMood = mood;
+  if (summary) recentSummary = summary;
+  if (mood) latestMood = mood;
   cleanHistory();
   console.log('🏠 最终history长度:', history.length);
+  console.log('🏠 最近心情:', latestMood);
+  console.log('🏠 最近摘要:', recentSummary);
 
   addDivider('🌸 秘密小屋开门啦 🌸');
   if (history.length > 0) {
@@ -760,7 +791,7 @@ async function uploadSticker(input) {
   } catch(e) { showMemoryBadge('上传出问题了～'); }
 }
 
-// ========== 🔧 已修复的 sendSticker（去掉 time 字段，加入兜底回复） ==========
+// ========== 🔧 已修复的 sendSticker ==========
 async function sendSticker(url) {
   document.getElementById('stickerPanel').classList.remove('open');
   const msgs = document.getElementById('messages');
@@ -776,11 +807,8 @@ async function sendSticker(url) {
   cleanHistory();
   showTyping();
   try {
-    // ========== 🔧 去掉 time 字段 ==========
     const cleanHistoryForAPI = history.map(({ role, content }) => ({ role, content }));
-    
     const cleanH = cleanHistoryForAPI.slice(-15).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
-    
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -804,15 +832,12 @@ async function sendSticker(url) {
       await saveMsg('assistant', reply);
       addBubble(reply, 'w');
     } else {
-      console.warn('⚠️ 表情包返回无内容:', data);
-      // 兜底回复
       const fallback = '嗡嗡收到表情包啦～(｡•́ω•̀｡)🩵';
       history.push({role:'assistant', content: fallback});
       await saveMsg('assistant', fallback);
       addBubble(fallback, 'w');
     }
   } catch(e) {
-    console.error('❌ 表情包错误:', e);
     removeTyping();
     const fallback = '嗡嗡收到表情包啦～(｡•́ω•̀｡)🩵';
     history.push({role:'assistant', content: fallback});
@@ -918,6 +943,7 @@ async function uploadPhoto(input) {
   }
 }
 
+// ========== 🔧 保存心情时同步到 profile ==========
 async function saveMood(mood, emoji, btn) {
   const today = new Date().toISOString().slice(0,10);
   try {
@@ -929,6 +955,9 @@ async function saveMood(mood, emoji, btn) {
       },
       body: JSON.stringify({ date: today, mood, note: '' })
     });
+    // 同步到 profile
+    await saveMoodToProfile(mood);
+    
     document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     showMemoryBadge(`${emoji} 今天心情"${mood}"记下来了～`);
@@ -942,7 +971,7 @@ async function saveMood(mood, emoji, btn) {
   }
 }
 
-// ========== 核心 sendMsg（修复 time 字段问题） ==========
+// ========== 核心 sendMsg ==========
 async function sendMsg() {
   const inp=document.getElementById('msgInp');
   const text=inp.value.trim();
@@ -965,10 +994,8 @@ async function sendMsg() {
   showTyping();
 
   try {
-    // ========== 🔧 关键修复：去掉 time 字段，只保留 role 和 content ==========
     const cleanHistoryForAPI = history.map(({ role, content }) => ({ role, content }));
     
-    // 构建干净的 messages（过滤掉图片、表情包等）
     let cleanMsgs = cleanHistoryForAPI.slice(-15).filter(m => {
       if (!m || !m.role) return false;
       if (!m.content || typeof m.content !== 'string') return false;
@@ -977,7 +1004,6 @@ async function sendMsg() {
       return true;
     });
     
-    // 确保交替
     const finalMsgs = [];
     for (const m of cleanMsgs) {
       if (finalMsgs.length === 0) {
@@ -987,11 +1013,9 @@ async function sendMsg() {
       }
     }
     
-    // 如果最终消息列表为空，或最后一条不是 user，添加一条
     if (finalMsgs.length === 0 || finalMsgs[finalMsgs.length-1].role !== 'user') {
       finalMsgs.push({role:'user', content:text});
     }
-    // 把系统提示注入到第一条 user 消息中
     if (finalMsgs.length > 0 && finalMsgs[0].role === 'user') {
       finalMsgs[0].content = getSystemMessage() + '\n\n' + finalMsgs[0].content;
     } else {
@@ -999,7 +1023,6 @@ async function sendMsg() {
     }
 
     console.log('📤 发送给Claude的消息数:', finalMsgs.length);
-    console.log('📤 最后一条:', finalMsgs[finalMsgs.length-1]);
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
