@@ -760,6 +760,7 @@ async function uploadSticker(input) {
   } catch(e) { showMemoryBadge('上传出问题了～'); }
 }
 
+// ========== 🔧 已修复的 sendSticker（去掉 time 字段，加入兜底回复） ==========
 async function sendSticker(url) {
   document.getElementById('stickerPanel').classList.remove('open');
   const msgs = document.getElementById('messages');
@@ -775,7 +776,11 @@ async function sendSticker(url) {
   cleanHistory();
   showTyping();
   try {
-    const cleanH = history.slice(-20).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
+    // ========== 🔧 去掉 time 字段 ==========
+    const cleanHistoryForAPI = history.map(({ role, content }) => ({ role, content }));
+    
+    const cleanH = cleanHistoryForAPI.slice(-15).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
+    
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -791,14 +796,29 @@ async function sendSticker(url) {
       })
     });
     const data = await res.json();
+    console.log('📥 表情包响应:', data);
     removeTyping();
     if (data.content && data.content[0] && data.content[0].text) {
       const reply = data.content[0].text;
       history.push({role:'assistant', content: reply});
       await saveMsg('assistant', reply);
       addBubble(reply, 'w');
+    } else {
+      console.warn('⚠️ 表情包返回无内容:', data);
+      // 兜底回复
+      const fallback = '嗡嗡收到表情包啦～(｡•́ω•̀｡)🩵';
+      history.push({role:'assistant', content: fallback});
+      await saveMsg('assistant', fallback);
+      addBubble(fallback, 'w');
     }
-  } catch(e) { removeTyping(); }
+  } catch(e) {
+    console.error('❌ 表情包错误:', e);
+    removeTyping();
+    const fallback = '嗡嗡收到表情包啦～(｡•́ω•̀｡)🩵';
+    history.push({role:'assistant', content: fallback});
+    await saveMsg('assistant', fallback);
+    addBubble(fallback, 'w');
+  }
 }
 
 async function uploadPhoto(input) {
