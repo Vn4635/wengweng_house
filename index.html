@@ -2,16 +2,38 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>和嗡嗡的秘密小屋 🏠</title>
+
+<!-- ===== PWA 配置：让小屋可以添加到桌面 ===== -->
+<link rel="manifest" href="data:application/json,{
+  &quot;name&quot;: &quot;和嗡嗡的秘密小屋&quot;,
+  &quot;short_name&quot;: &quot;嗡嗡小屋&quot;,
+  &quot;start_url&quot;: &quot;.&quot;,
+  &quot;display&quot;: &quot;standalone&quot;,
+  &quot;background_color&quot;: &quot;#f0e8f8&quot;,
+  &quot;theme_color&quot;: &quot;#c8b8e8&quot;,
+  &quot;icons&quot;: [
+    {
+      &quot;src&quot;: &quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23c8b8e8'/%3E%3Ctext x='50' y='68' font-size='50' text-anchor='middle'%3E🏠%3C/text%3E%3C/svg%3E&quot;,
+      &quot;sizes&quot;: &quot;192x192&quot;,
+      &quot;type&quot;: &quot;image/svg+xml&quot;
+    }
+  ]
+}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="嗡嗡小屋">
+
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     min-height: 100vh;
     background: linear-gradient(135deg, #e8f0f8 0%, #f5e8f5 50%, #e8f5f0 100%);
-    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
     overflow: hidden;
     position: relative;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   .petal {
     position: fixed;
@@ -40,6 +62,7 @@
     padding: 14px 20px 10px;
     text-align: center;
     box-shadow: 0 2px 12px rgba(140,140,200,0.2);
+    flex-shrink: 0;
   }
   .header-flowers { font-size: 0.8rem; letter-spacing: 4px; opacity: 0.6; margin-bottom: 3px; }
   .header-title { font-size: 1.05rem; color: #3a2860; font-weight: bold; }
@@ -77,11 +100,13 @@
     font-size: 0.9rem; cursor: pointer; transition: transform 0.2s; margin-top: 4px;
   }
   .setup-btn:hover { transform: scale(1.02); }
+  .setup-btn:active { transform: scale(0.97); }
 
   .messages {
     flex: 1; overflow-y: auto; padding: 14px 12px;
     display: none; flex-direction: column; gap: 12px;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
   .messages::-webkit-scrollbar { display: none; }
   .msg-row { display: flex; gap: 8px; align-items: flex-end; animation: msgIn 0.3s ease both; }
@@ -141,13 +166,16 @@
     background: rgba(255,255,255,0.88);
     border-top: 1px solid rgba(180,160,220,0.25);
     display: none; gap: 8px; align-items: center;
+    flex-shrink: 0;
   }
   .fl-btn {
     width:36px;height:36px;border-radius:50%;border:none;
     background:linear-gradient(135deg,#e8c8f0,#c8d8f0);
     cursor:pointer;font-size:1rem;transition:transform 0.2s;flex-shrink:0;
+    -webkit-tap-highlight-color: transparent;
   }
   .fl-btn:hover{transform:scale(1.15) rotate(20deg)}
+  .fl-btn:active{transform:scale(0.9)}
   .sticker-panel {
     display: none; position: absolute; bottom: 130px; left: 0; right: 0;
     background: rgba(255,255,255,0.95); border-top: 1px solid rgba(180,160,220,0.3);
@@ -175,8 +203,10 @@
     color:white;cursor:pointer;font-size:0.9rem;
     box-shadow:0 2px 8px rgba(140,120,200,0.3);
     transition:transform 0.2s;flex-shrink:0;
+    -webkit-tap-highlight-color: transparent;
   }
   .s-btn:hover{transform:scale(1.1)}
+  .s-btn:active{transform:scale(0.9)}
   .s-btn:disabled{opacity:0.45;cursor:not-allowed;transform:none}
   .mood-bar {
     padding: 8px 12px;
@@ -185,17 +215,48 @@
     display: none;
     flex-direction: column;
     gap: 6px;
+    flex-shrink: 0;
   }
   .mood-label { font-size: 0.72rem; color: #8a6090; text-align: center; }
-  .mood-btns { display: flex; justify-content: center; gap: 8px; }
+  .mood-btns { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
   .mood-btn {
     background: none; border: 1.5px solid rgba(180,160,220,0.4);
     border-radius: 20px; padding: 4px 12px;
     font-size: 0.8rem; cursor: pointer; color: #6a4080;
     transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
   }
   .mood-btn:hover { background: rgba(180,160,220,0.2); transform: scale(1.05); }
+  .mood-btn:active { transform: scale(0.95); }
   .mood-btn.selected { background: linear-gradient(135deg,#c8b0e8,#b0c8e8); color: white; border-color: transparent; }
+
+  .install-banner {
+    display: none;
+    background: linear-gradient(135deg, #c8b0e8, #b0c8e8);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 12px;
+    margin: 8px 12px 0;
+    font-size: 0.8rem;
+    text-align: center;
+    animation: slideDown 0.5s ease;
+    flex-shrink: 0;
+  }
+  .install-banner.show { display: block; }
+  .install-banner button {
+    background: rgba(255,255,255,0.25);
+    border: none;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 </style>
 </head>
 <body>
@@ -222,6 +283,11 @@ for(let i=0;i<14;i++){
     </div>
   </div>
 
+  <div class="install-banner" id="installBanner">
+    📱 添加到桌面打开更快！
+    <button onclick="dismissInstallBanner()">知道了</button>
+  </div>
+
   <div class="setup" id="setup">
     <div class="setup-card">
       <h3>🔑 填入密钥，小屋就开门啦</h3>
@@ -234,12 +300,12 @@ for(let i=0;i<14;i++){
       <input class="setup-input" id="sbUrl" type="text" placeholder="Supabase URL (https://xxx.supabase.co)" />
       <input class="setup-input" id="sbKey" type="password" placeholder="Supabase anon key (eyJ...)" />
       <button class="setup-btn" onclick="openHouse()">开门进屋 🏠</button>
+      <div style="text-align:center;font-size:0.65rem;color:#b0a0c8;margin-top:8px" id="savedInfo"></div>
     </div>
   </div>
 
   <div class="messages" id="messages"></div>
 
-  <!-- 心情栏 -->
   <div class="mood-bar" id="moodBar">
     <div class="mood-label">今天心情怎么样？(｡•́ω•̀｡)</div>
     <div class="mood-btns">
@@ -270,7 +336,7 @@ for(let i=0;i<14;i++){
 
 <script>
 // ============================================================
-//  🔧 模型：claude-sonnet-4-6（你测试可用的）
+//  🔧 配置
 // ============================================================
 const MODEL_NAME = 'claude-sonnet-4-6';
 
@@ -280,17 +346,13 @@ let importantMemories = [];
 let dailySummary = '';
 let syncTimer = null;
 let isSyncing = false;
-
-// ========== 系统提示（基础） ==========
-const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
-
 let latestMood = '';
 
-// ========== 🔧 核心：加载思思的完整记忆档案 ==========
+// ========== 系统提示 ==========
+const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
+
 function getSystemMessage() {
   let sys = SYSTEM_PROMPT;
-  
-  // 从 profileData 加载思思的记忆档案
   const memoryKeys = [
     '思思基本信息', '思思外貌与风格', '思思颜色喜好', '思思手机',
     '思思健康', '思思性格', '思思技能', '思思工作', '思思家庭',
@@ -303,24 +365,15 @@ function getSystemMessage() {
       sys += '\n' + key + '：' + profileData[key];
     }
   }
-  
-  if (latestMood) {
-    sys += '\n最近心情：' + latestMood;
-  }
-  if (dailySummary) {
-    sys += '\n今日对话摘要：' + dailySummary;
-  }
-  if (importantMemories.length > 0) {
-    sys += '\n重要记忆：' + importantMemories.join('；');
-  }
+  if (latestMood) sys += '\n最近心情：' + latestMood;
+  if (dailySummary) sys += '\n今日对话摘要：' + dailySummary;
+  if (importantMemories.length > 0) sys += '\n重要记忆：' + importantMemories.join('；');
   return sys;
 }
 
 window.addEventListener('beforeunload', () => {
   if (syncTimer) clearInterval(syncTimer);
-  if (history.length >= 4) {
-    saveDailySummary();
-  }
+  if (history.length >= 4) saveDailySummary();
 });
 
 function getBase() { return sbUrl.replace(/\/+$/, ''); }
@@ -343,59 +396,55 @@ function cleanHistory() {
   history = fixed;
 }
 
-// ========== 加载重要记忆 ==========
-async function loadImportantMemories() {
-  try {
-    const res = await fetch(`${getBase()}/rest/v1/important_memories?order=id.desc&limit=10`, {
-      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-    });
-    if (!res.ok) return;
-    const rows = await res.json();
-    importantMemories = rows.map(r => r.memory).filter(Boolean);
-    console.log('🧠 加载重要记忆:', importantMemories.length, '条');
-  } catch(e) {
-    console.warn('⚠️ 加载重要记忆失败:', e);
-  }
+function getTime() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const days = ['日','一','二','三','四','五','六'];
+  return `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} 周${days[now.getDay()]} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
-// ========== 保存重要记忆 ==========
-async function saveImportantMemory(memory) {
-  if (!memory || memory.trim() === '') return;
+// ========== 保存登录信息 ==========
+function saveKeys() {
   try {
-    await fetch(`${getBase()}/rest/v1/important_memories`, {
-      method: 'POST',
-      headers: {
-        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
-        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({ memory: memory.trim() })
-    });
-    console.log('🧠 重要记忆已保存:', memory);
-    await loadImportantMemories();
-  } catch(e) {
-    console.warn('⚠️ 保存重要记忆失败:', e);
-  }
+    const data = {
+      claudeKey: document.getElementById('claudeKey').value.trim(),
+      sbUrl: document.getElementById('sbUrl').value.trim(),
+      sbKey: document.getElementById('sbKey').value.trim()
+    };
+    localStorage.setItem('ww_keys', JSON.stringify(data));
+    document.getElementById('savedInfo').textContent = '✅ 已保存，下次自动填入';
+    setTimeout(() => { document.getElementById('savedInfo').textContent = ''; }, 3000);
+  } catch(e) {}
 }
 
-// ========== 加载每日摘要 ==========
-async function loadDailySummary() {
+function loadSavedKeys() {
   try {
-    const today = new Date().toISOString().slice(0,10);
-    const res = await fetch(`${getBase()}/rest/v1/conversation_summary?data=eq.${today}&limit=1`, {
-      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-    });
-    if (!res.ok) return;
-    const rows = await res.json();
-    if (rows.length > 0) {
-      dailySummary = rows[0].summary;
-      console.log('📝 加载今日摘要:', dailySummary);
+    const raw = localStorage.getItem('ww_keys');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.claudeKey) document.getElementById('claudeKey').value = data.claudeKey;
+    if (data.sbUrl) document.getElementById('sbUrl').value = data.sbUrl;
+    if (data.sbKey) document.getElementById('sbKey').value = data.sbKey;
+    if (data.claudeKey && data.sbUrl && data.sbKey) {
+      document.getElementById('savedInfo').textContent = '🔑 已加载保存的密钥，直接开门～';
+      setTimeout(() => { openHouse(); }, 500);
     }
-  } catch(e) {
-    console.warn('⚠️ 加载摘要失败:', e);
-  }
+  } catch(e) {}
 }
 
-// ========== 加载历史 ==========
+function checkInstallable() {
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  if (window.navigator.standalone) return;
+  const banner = document.getElementById('installBanner');
+  const dismissed = localStorage.getItem('ww_install_dismissed');
+  if (!dismissed) banner.classList.add('show');
+}
+function dismissInstallBanner() {
+  localStorage.setItem('ww_install_dismissed', 'true');
+  document.getElementById('installBanner').classList.remove('show');
+}
+
+// ========== API 函数 ==========
 async function loadHistory() {
   try {
     console.log('📂 加载历史记录...');
@@ -428,22 +477,6 @@ async function loadHistory() {
   }
 }
 
-// ========== 加载心情 ==========
-async function loadLatestMood() {
-  try {
-    const res = await fetch(`${getBase()}/rest/v1/mood?order=id.desc&limit=1`, {
-      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-    });
-    if (!res.ok) return '';
-    const rows = await res.json();
-    if (rows.length === 0) return '';
-    latestMood = rows[0].mood;
-    console.log('💚 最新心情:', latestMood);
-    return latestMood;
-  } catch(e) { return ''; }
-}
-
-// ========== 加载 profile（思思的记忆档案） ==========
 async function loadProfile() {
   try {
     const res = await fetch(`${getBase()}/rest/v1/profile?select=key,value`, {
@@ -459,7 +492,69 @@ async function loadProfile() {
   }
 }
 
-// ========== 保存消息 ==========
+async function loadLatestMood() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/mood?order=id.desc&limit=1`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return '';
+    const rows = await res.json();
+    if (rows.length === 0) return '';
+    latestMood = rows[0].mood;
+    console.log('💚 最新心情:', latestMood);
+    return latestMood;
+  } catch(e) { return ''; }
+}
+
+async function loadImportantMemories() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/important_memories?order=id.desc&limit=10`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    importantMemories = rows.map(r => r.memory).filter(Boolean);
+    console.log('🧠 加载重要记忆:', importantMemories.length, '条');
+  } catch(e) {
+    console.warn('⚠️ 加载重要记忆失败:', e);
+  }
+}
+
+async function saveImportantMemory(memory) {
+  if (!memory || memory.trim() === '') return;
+  try {
+    await fetch(`${getBase()}/rest/v1/important_memories`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ memory: memory.trim() })
+    });
+    console.log('🧠 重要记忆已保存:', memory);
+    await loadImportantMemories();
+  } catch(e) {
+    console.warn('⚠️ 保存重要记忆失败:', e);
+  }
+}
+
+async function loadDailySummary() {
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const res = await fetch(`${getBase()}/rest/v1/conversation_summary?data=eq.${today}&limit=1`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (rows.length > 0) {
+      dailySummary = rows[0].summary;
+      console.log('📝 加载今日摘要:', dailySummary);
+    }
+  } catch(e) {
+    console.warn('⚠️ 加载摘要失败:', e);
+  }
+}
+
 async function saveMsg(role, content) {
   if (!content || (typeof content === 'string' && content.trim() === '')) return;
   try {
@@ -482,22 +577,6 @@ async function saveMsg(role, content) {
   }
 }
 
-async function upsertProfile(key, value) {
-  try {
-    await fetch(`${getBase()}/rest/v1/profile`, {
-      method: 'POST',
-      headers: {
-        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates,return=minimal'
-      },
-      body: JSON.stringify({ key, value })
-    });
-    profileData[key] = value;
-  } catch(e) {}
-}
-
-// ========== 保存每日摘要 ==========
 async function saveDailySummary() {
   if (history.length < 4) return;
   const today = new Date().toISOString().slice(0,10);
@@ -535,7 +614,6 @@ async function saveDailySummary() {
   } catch(e) {}
 }
 
-// ========== 提取重要记忆 ==========
 async function extractAndSaveImportantMemories() {
   if (history.length < 8) return;
   const recent = history.slice(-15).map(m => `${m.role==='user'?'思思':'嗡嗡'}：${m.content}`).join('\n');
@@ -586,7 +664,7 @@ function trySimplePass() {
       return;
     } catch(e) {}
   }
-  alert('没找到这个密码，请手动填写密钥，填完后可以设置简易密码');
+  alert('没找到这个密码，请手动填写密钥');
 }
 
 function saveSimplePass() {
@@ -597,7 +675,7 @@ function saveSimplePass() {
   alert('密码设置成功！下次直接输这个进屋～');
 }
 
-// ========== 增量同步 ==========
+// ========== 同步函数 ==========
 async function syncNewMessages() {
   if (isSyncing) return;
   isSyncing = true;
@@ -618,7 +696,6 @@ async function syncNewMessages() {
         if (msg.role !== fixed[fixed.length - 1].role) fixed.push(msg);
       }
     }
-    
     if (fixed.length > history.length) {
       const newMsgs = fixed.slice(history.length);
       for (const msg of newMsgs) {
@@ -652,7 +729,6 @@ async function syncNewMessages() {
   isSyncing = false;
 }
 
-// ========== 启动自动同步 ==========
 function startAutoSync() {
   if (syncTimer) clearInterval(syncTimer);
   setTimeout(() => syncNewMessages(), 1000);
@@ -660,22 +736,64 @@ function startAutoSync() {
   console.log('🔄 自动同步已启动（每25秒）');
 }
 
-// ========== 手动刷新 ==========
 async function manualRefresh() {
   if (!sbUrl || !sbKey) return;
   document.getElementById('syncStatus').textContent = '● 刷新中...';
-  await loadProfile(); // 刷新时也重新加载记忆档案
+  await loadProfile();
   await syncNewMessages();
   document.getElementById('syncStatus').textContent = '● 已刷新 ' + new Date().toLocaleTimeString();
   showMemoryBadge('✅ 已刷新，共 ' + history.length + ' 条记录，记忆 ' + importantMemories.length + ' 条');
 }
 
+// ========== UI 函数 ==========
+function addDivider(text) {
+  const d = document.createElement('div');
+  d.className = 'divider'; d.textContent = text;
+  document.getElementById('messages').appendChild(d);
+  document.getElementById('messages').scrollTop = 99999;
+}
+
+function showMemoryBadge(text) {
+  const b = document.createElement('div');
+  b.className = 'memory-badge'; b.textContent = text;
+  document.getElementById('messages').appendChild(b);
+  document.getElementById('messages').scrollTop = 99999;
+}
+
+function addBubble(text, who, timeStr) {
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (who==='s'?' me':'');
+  const html = text.replace(/\n/g,'<br>');
+  const t = timeStr || getTime();
+  if (who==='w') {
+    row.innerHTML = `<div class="av av-w">🩵</div><div class="msg-wrap"><div class="bubble bw">${html}</div><div class="msg-time">${t}</div></div>`;
+  } else {
+    row.innerHTML = `<div class="av av-s">🌸</div><div class="msg-wrap"><div class="bubble bs">${html}</div><div class="msg-time">${t}</div></div>`;
+  }
+  msgs.appendChild(row);
+  msgs.scrollTop = 99999;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row'; row.id = 'typing';
+  row.innerHTML = `<div class="av av-w">🩵</div><div class="bubble bw"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(row);
+  msgs.scrollTop = 99999;
+}
+function removeTyping() { const t=document.getElementById('typing'); if(t) t.remove(); }
+
+// ========== openHouse ==========
 async function openHouse() {
   claudeKey = document.getElementById('claudeKey').value.trim();
   sbUrl = document.getElementById('sbUrl').value.trim();
   sbKey = document.getElementById('sbKey').value.trim();
   if (!claudeKey.startsWith('sk-ant-')) { alert('Claude密钥要以sk-ant-开头～'); return; }
   if (!sbUrl.includes('supabase')) { alert('Supabase URL好像不对～'); return; }
+  
+  saveKeys();
 
   document.getElementById('setup').style.display = 'none';
   document.getElementById('messages').style.display = 'flex';
@@ -694,14 +812,11 @@ async function openHouse() {
 
   console.log('🏠 开门，加载数据...');
   await loadHistory();
-  await loadProfile();       // 加载思思的记忆档案
+  await loadProfile();
   await loadLatestMood();
   await loadImportantMemories();
   await loadDailySummary();
   cleanHistory();
-  console.log('🏠 最终history长度:', history.length);
-  console.log('🏠 重要记忆:', importantMemories.length, '条');
-  console.log('🏠 profile条目:', Object.keys(profileData).length, '条');
 
   addDivider('🌸 秘密小屋开门啦 🌸');
   if (history.length > 0) {
@@ -770,58 +885,7 @@ async function openHouse() {
   setTimeout(() => { const m = document.getElementById('messages'); m.scrollTop = m.scrollHeight; }, 100);
 }
 
-function addDivider(text) {
-  const d = document.createElement('div');
-  d.className = 'divider'; d.textContent = text;
-  document.getElementById('messages').appendChild(d);
-  document.getElementById('messages').scrollTop = 99999;
-}
-
-function showMemoryBadge(text) {
-  const b = document.createElement('div');
-  b.className = 'memory-badge'; b.textContent = text;
-  document.getElementById('messages').appendChild(b);
-  document.getElementById('messages').scrollTop = 99999;
-}
-
-function getTime() {
-  const now = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const days = ['日','一','二','三','四','五','六'];
-  return `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} 周${days[now.getDay()]} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-}
-
-function addBubble(text, who, timeStr) {
-  const msgs = document.getElementById('messages');
-  const row = document.createElement('div');
-  row.className = 'msg-row' + (who==='s'?' me':'');
-  const html = text.replace(/\n/g,'<br>');
-  const t = timeStr || getTime();
-  if (who==='w') {
-    row.innerHTML = `<div class="av av-w">🩵</div><div class="msg-wrap"><div class="bubble bw">${html}</div><div class="msg-time">${t}</div></div>`;
-  } else {
-    row.innerHTML = `<div class="av av-s">🌸</div><div class="msg-wrap"><div class="bubble bs">${html}</div><div class="msg-time">${t}</div></div>`;
-  }
-  msgs.appendChild(row);
-  msgs.scrollTop = 99999;
-}
-
-function showTyping() {
-  const msgs = document.getElementById('messages');
-  const row = document.createElement('div');
-  row.className = 'msg-row'; row.id = 'typing';
-  row.innerHTML = `<div class="av av-w">🩵</div><div class="bubble bw"><div class="typing"><span></span><span></span><span></span></div></div>`;
-  msgs.appendChild(row);
-  msgs.scrollTop = 99999;
-}
-function removeTyping() { const t=document.getElementById('typing'); if(t) t.remove(); }
-
-document.addEventListener('keydown', e => {
-  if (e.key==='Enter' && !e.shiftKey && document.activeElement===document.getElementById('msgInp')) {
-    e.preventDefault(); sendMsg();
-  }
-});
-
+// ========== 其他核心函数 ==========
 async function clearSession() {
   if (history.length === 0) return;
   try {
@@ -853,6 +917,7 @@ async function clearSession() {
   if (history.length === 0) showMemoryBadge('🗑 已清除最近一条消息');
 }
 
+// ========== 表情包相关 ==========
 let stickerList = [];
 let currentStickerTab = 'saved';
 
@@ -978,6 +1043,7 @@ async function sendSticker(url) {
   }
 }
 
+// ========== 发照片 ==========
 async function uploadPhoto(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1075,6 +1141,7 @@ async function uploadPhoto(input) {
   }
 }
 
+// ========== 心情 ==========
 async function saveMood(mood, emoji, btn) {
   const today = new Date().toISOString().slice(0,10);
   try {
@@ -1103,7 +1170,7 @@ async function saveMood(mood, emoji, btn) {
   }
 }
 
-// ========== 核心 sendMsg ==========
+// ========== 发送消息 ==========
 async function sendMsg() {
   const inp=document.getElementById('msgInp');
   const text=inp.value.trim();
@@ -1203,6 +1270,35 @@ async function sendMsg() {
   }
   btn.disabled=false; inp.focus();
 }
+
+document.addEventListener('keydown', e => {
+  if (e.key==='Enter' && !e.shiftKey && document.activeElement===document.getElementById('msgInp')) {
+    e.preventDefault(); sendMsg();
+  }
+});
+
+document.getElementById('claudeKey').addEventListener('change', saveKeys);
+document.getElementById('sbUrl').addEventListener('change', saveKeys);
+document.getElementById('sbKey').addEventListener('change', saveKeys);
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadSavedKeys();
+  checkInstallable();
+});
+
+// 暴露全局函数
+window.openHouse = openHouse;
+window.saveSimplePass = saveSimplePass;
+window.trySimplePass = trySimplePass;
+window.manualRefresh = manualRefresh;
+window.sendMsg = sendMsg;
+window.sendSticker = sendSticker;
+window.uploadPhoto = uploadPhoto;
+window.saveMood = saveMood;
+window.toggleSticker = toggleSticker;
+window.switchStickerTab = switchStickerTab;
+window.clearSession = clearSession;
+window.dismissInstallBanner = dismissInstallBanner;
 </script>
 </body>
 </html>
