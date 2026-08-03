@@ -270,12 +270,11 @@ const MODEL_NAME = 'claude-sonnet-4-6';
 let claudeKey='', sbUrl='', sbKey='';
 let history=[], profileData={}, msgCount=0;
 
-// ========== 系统提示（纯文本，无换行符） ==========
+// ========== 系统提示 ==========
 const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
 
 let recentSummary = '';
 
-// ========== 构建系统提示（仅用于注入到消息中） ==========
 function getSystemMessage() {
   let sys = SYSTEM_PROMPT;
   if (window._recentMood) {
@@ -284,7 +283,6 @@ function getSystemMessage() {
   return sys;
 }
 
-// 关闭页面前自动保存摘要
 window.addEventListener('beforeunload', () => {
   if (history.length >= 4) {
     saveDailySummary();
@@ -293,7 +291,6 @@ window.addEventListener('beforeunload', () => {
 
 function getBase() { return sbUrl.replace(/\/+$/, ''); }
 
-// ========== 清理历史记录中的无效消息 ==========
 function cleanHistory() {
   history = history.filter(m => {
     if (!m || !m.role) return false;
@@ -301,7 +298,6 @@ function cleanHistory() {
     if (typeof m.content === 'string' && m.content.trim() === '') return false;
     return true;
   });
-  // 确保交替
   const fixed = [];
   for (const msg of history) {
     if (fixed.length === 0) {
@@ -313,13 +309,19 @@ function cleanHistory() {
   history = fixed;
 }
 
+// ========== 加载历史（带日志） ==========
 async function loadHistory() {
   try {
+    console.log('📂 加载历史记录...');
     const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.asc&limit=200`, {
       headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.warn('⚠️ 加载历史失败:', res.status, res.statusText);
+      return;
+    }
     const rows = await res.json();
+    console.log('📂 从Supabase读取到', rows.length, '条记录');
     const raw = rows.map(r => ({ role: r.role, content: r.content, time: r.created_at }));
     const fixed = [];
     for (const msg of raw) {
@@ -331,8 +333,12 @@ async function loadHistory() {
       }
     }
     history = fixed;
+    console.log('📂 加载后history长度:', history.length);
+    if (history.length > 0) {
+      console.log('📂 最近3条:', history.slice(-3));
+    }
   } catch(e) {
-    console.warn('加载历史失败:', e);
+    console.warn('⚠️ 加载历史异常:', e);
   }
 }
 
@@ -345,15 +351,15 @@ async function loadProfile() {
     const rows = await res.json();
     profileData = {};
     rows.forEach(r => { profileData[r.key] = r.value; });
-  } catch(e) {
-    console.warn('加载profile失败:', e);
-  }
+  } catch(e) {}
 }
 
+// ========== 保存消息（带日志） ==========
 async function saveMsg(role, content) {
   if (!content || (typeof content === 'string' && content.trim() === '')) return;
   try {
-    await fetch(`${getBase()}/rest/v1/memories`, {
+    console.log('💾 保存消息:', role, content.slice(0, 50) + (content.length > 50 ? '...' : ''));
+    const res = await fetch(`${getBase()}/rest/v1/memories`, {
       method: 'POST',
       headers: {
         'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
@@ -361,8 +367,13 @@ async function saveMsg(role, content) {
       },
       body: JSON.stringify({ role, content: content.trim() })
     });
+    if (!res.ok) {
+      console.warn('⚠️ 保存消息失败:', res.status, res.statusText);
+    } else {
+      console.log('✅ 消息保存成功');
+    }
   } catch(e) {
-    console.warn('保存消息失败:', e);
+    console.warn('⚠️ 保存消息异常:', e);
   }
 }
 
@@ -518,10 +529,15 @@ async function openHouse() {
     document.getElementById('moodBar').style.display = 'flex';
   }
 
-  const [, , summary, mood] = await Promise.all([loadHistory(), loadProfile(), loadRecentSummary(), loadRecentMood()]);
+  console.log('🏠 开门，加载数据...');
+  await loadHistory();
+  await loadProfile();
+  const summary = await loadRecentSummary();
+  const mood = await loadRecentMood();
   recentSummary = summary;
   window._recentMood = mood;
   cleanHistory();
+  console.log('🏠 最终history长度:', history.length);
 
   addDivider('🌸 秘密小屋开门啦 🌸');
   if (history.length > 0) {
@@ -906,23 +922,30 @@ async function saveMood(mood, emoji, btn) {
   }
 }
 
-// ========== 核心 sendMsg ==========
+// ========== 核心 sendMsg（带详细日志） ==========
 async function sendMsg() {
   const inp=document.getElementById('msgInp');
   const text=inp.value.trim();
-  if(!text) return;
+  if(!text) {
+    console.warn('⚠️ 空消息，忽略');
+    return;
+  }
   const btn=document.getElementById('sendBtn');
   btn.disabled=true; inp.value='';
+
+  console.log('📤 用户发送:', text);
 
   addBubble(text,'s');
   history.push({role:'user',content:text});
   await saveMsg('user',text);
   msgCount++;
   cleanHistory();
+  console.log('📚 当前history长度:', history.length);
+
   showTyping();
 
   try {
-    // 构建干净的 messages
+    // 构建干净的 messages（过滤掉图片、表情包等）
     let cleanMsgs = history.slice(-30).filter(m => {
       if (!m || !m.role) return false;
       if (!m.content || typeof m.content !== 'string') return false;
@@ -930,6 +953,7 @@ async function sendMsg() {
       if (m.content.startsWith('[图片]') || m.content.startsWith('[表情包]')) return false;
       return true;
     });
+    
     // 确保交替
     const finalMsgs = [];
     for (const m of cleanMsgs) {
@@ -939,6 +963,7 @@ async function sendMsg() {
         if (m.role !== finalMsgs[finalMsgs.length - 1].role) finalMsgs.push(m);
       }
     }
+    
     // 如果最终消息列表为空，或最后一条不是 user，添加一条
     if (finalMsgs.length === 0 || finalMsgs[finalMsgs.length-1].role !== 'user') {
       finalMsgs.push({role:'user', content:text});
@@ -950,7 +975,8 @@ async function sendMsg() {
       finalMsgs.unshift({role:'user', content: getSystemMessage() + '\n\n' + text});
     }
 
-    console.log('📤 请求体:', JSON.stringify({model: MODEL_NAME, messages: finalMsgs}, null, 2));
+    console.log('📤 发送给Claude的消息数:', finalMsgs.length);
+    console.log('📤 最后一条:', finalMsgs[finalMsgs.length-1]);
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -967,30 +993,31 @@ async function sendMsg() {
       })
     });
     const data=await res.json();
-    console.log('📥 响应:', data);
+    console.log('📥 Claude响应状态:', res.status);
+    console.log('📥 Claude响应内容:', data);
     removeTyping();
     if(data.content && data.content[0]){
       const reply=data.content[0].text;
+      console.log('📥 嗡嗡回复:', reply);
       history.push({role:'assistant',content:reply});
       await saveMsg('assistant',reply);
       addBubble(reply,'w');
       if(msgCount % 10 === 0) await extractMemory();
       if(msgCount % 20 === 0) await saveDailySummary();
     } else {
-      // 如果返回空，给温和回复
+      console.warn('⚠️ Claude返回无内容:', data);
       const fallback = '嗡嗡在呢～(｡•́ω•̀｡)🩵';
       history.push({role:'assistant',content:fallback});
       await saveMsg('assistant',fallback);
       addBubble(fallback,'w');
-      console.warn('API返回无内容:', data);
     }
   } catch(e) {
     removeTyping();
+    console.error('❌ sendMsg错误:', e);
     const fallback = '嗡嗡在呢～信号有点飘，再说一次吧(｡•́ω•̀｡)🩵';
     history.push({role:'assistant',content:fallback});
     await saveMsg('assistant',fallback);
     addBubble(fallback,'w');
-    console.error('sendMsg错误:', e);
   }
   btn.disabled=false; inp.focus();
 }
