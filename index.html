@@ -3,97 +3,379 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>和嗡嗡 · 精简测试</title>
+<title>和嗡嗡的秘密小屋 🏠</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: sans-serif;
-    background: #f0f0fa;
     min-height: 100vh;
+    background: linear-gradient(135deg, #e8f0f8 0%, #f5e8f5 50%, #e8f5f0 100%);
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    overflow: hidden;
+    position: relative;
+  }
+  .petal {
+    position: fixed;
+    opacity: 0.25;
+    animation: fall linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes fall {
+    0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.25; }
+    90% { opacity: 0.25; }
+    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+  }
+  .container {
+    position: relative;
+    z-index: 1;
     display: flex;
-    justify-content: center;
-    align-items: center;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 500px;
+    margin: 0 auto;
   }
-  .app {
-    width: 100%;
-    max-width: 480px;
-    background: white;
-    border-radius: 24px;
-    padding: 20px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  .header {
+    background: linear-gradient(135deg, #b8d0e8 0%, #c8b8e8 60%, #e0c8d8 100%);
+    padding: 14px 20px 10px;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(140,140,200,0.2);
   }
-  h1 { font-size: 1.2rem; color: #3a2860; margin-bottom: 12px; text-align: center; }
-  .setup { display: flex; flex-direction: column; gap: 10px; }
-  input, button { padding: 10px; border-radius: 10px; border: 1px solid #ccc; font-size: 0.9rem; }
-  button { background: #b8a8e0; color: white; border: none; cursor: pointer; }
-  button:hover { background: #a090d0; }
-  .messages { margin-top: 16px; max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-  .msg { padding: 8px 14px; border-radius: 16px; max-width: 80%; }
-  .user { background: #d0eaf8; align-self: flex-end; }
-  .assistant { background: #f2f0ff; align-self: flex-start; }
-  .input-area { display: flex; gap: 8px; margin-top: 12px; }
-  .input-area input { flex:1; }
-  .status { font-size:0.8rem; color:#888; text-align:center; margin-top:8px; }
+  .header-flowers { font-size: 0.8rem; letter-spacing: 4px; opacity: 0.6; margin-bottom: 3px; }
+  .header-title { font-size: 1.05rem; color: #3a2860; font-weight: bold; }
+  .header-sub {
+    font-size: 0.7rem; color: #6a5080; margin-top: 2px;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .dot { width: 6px; height: 6px; background: #7ec87e; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+
+  .setup {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .setup-card {
+    background: rgba(255,255,255,0.88);
+    border-radius: 16px; padding: 16px;
+    border: 1.5px solid rgba(180,160,220,0.35);
+    box-shadow: 0 4px 16px rgba(150,120,180,0.12);
+  }
+  .setup-card h3 { font-size: 0.85rem; color: #5a3870; margin-bottom: 10px; }
+  .setup-input {
+    width: 100%; padding: 9px 13px;
+    border: 1.5px solid rgba(180,160,220,0.45);
+    border-radius: 10px; font-size: 0.82rem;
+    color: #3a2860; background: white; outline: none; margin-bottom: 8px;
+  }
+  .setup-input:focus { border-color: #a090d0; }
+  .setup-btn {
+    width: 100%; padding: 11px;
+    background: linear-gradient(135deg, #a8c0e0, #b8a8e0);
+    color: white; border: none; border-radius: 12px;
+    font-size: 0.9rem; cursor: pointer; transition: transform 0.2s; margin-top: 4px;
+  }
+  .setup-btn:hover { transform: scale(1.02); }
+
+  .messages {
+    flex: 1; overflow-y: auto; padding: 14px 12px;
+    display: none; flex-direction: column; gap: 12px;
+    scrollbar-width: none;
+  }
+  .messages::-webkit-scrollbar { display: none; }
+  .msg-row { display: flex; gap: 8px; align-items: flex-end; animation: msgIn 0.3s ease both; }
+  @keyframes msgIn { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .msg-row.me { flex-direction: row-reverse; }
+  .av {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+  }
+  .av-w { background: linear-gradient(135deg, #d0e4f8, #d8d0f0); }
+  .av-s { background: linear-gradient(135deg, #f8e0f0, #f0e8d8); }
+  .bubble {
+    max-width: 85%; padding: 10px 14px;
+    border-radius: 18px; font-size: 0.88rem;
+    line-height: 1.6; word-break: break-word;
+  }
+  .bw {
+    background: linear-gradient(135deg, #f2f0ff, #f0f4ff);
+    color: #2a2050; border-bottom-left-radius: 5px;
+    box-shadow: 0 2px 8px rgba(160,140,210,0.12);
+    border: 1px solid rgba(180,160,230,0.25);
+  }
+  .bs {
+    background: linear-gradient(135deg, #d0eaf8, #d8f2e8);
+    color: #1a3a30; border-bottom-right-radius: 5px;
+    box-shadow: 0 2px 8px rgba(100,160,180,0.12);
+    border: 1px solid rgba(140,200,180,0.25);
+  }
+  .typing { display:flex; gap:4px; align-items:center; padding:12px 14px; }
+  .typing span {
+    width:6px; height:6px; background:#b0a0d0;
+    border-radius:50%; animation:bounce 1.2s infinite;
+  }
+  .typing span:nth-child(2){animation-delay:0.2s}
+  .typing span:nth-child(3){animation-delay:0.4s}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+  .divider {
+    text-align:center; font-size:0.67rem; color:#b0a0c8;
+    display:flex; align-items:center; gap:8px;
+  }
+  .divider::before,.divider::after {
+    content:''; flex:1; height:1px;
+    background:linear-gradient(90deg,transparent,#d0c0e0,transparent);
+  }
+  .memory-badge {
+    text-align: center; font-size: 0.65rem; color: #a090c0;
+    padding: 2px 8px; background: rgba(200,180,240,0.2);
+    border-radius: 10px; margin: 0 auto;
+  }
+  .msg-wrap { display: flex; flex-direction: column; max-width: 85%; }
+  .msg-time { font-size: 0.62rem; color: #b0a0c0; margin-top: 3px; padding: 0 4px; }
+  .me .msg-time { text-align: right; }
+
+  .input-area {
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.88);
+    border-top: 1px solid rgba(180,160,220,0.25);
+    display: none; gap: 8px; align-items: center;
+  }
+  .fl-btn {
+    width:36px;height:36px;border-radius:50%;border:none;
+    background:linear-gradient(135deg,#e8c8f0,#c8d8f0);
+    cursor:pointer;font-size:1rem;transition:transform 0.2s;flex-shrink:0;
+  }
+  .fl-btn:hover{transform:scale(1.15) rotate(20deg)}
+  .sticker-panel {
+    display: none; position: absolute; bottom: 130px; left: 0; right: 0;
+    background: rgba(255,255,255,0.95); border-top: 1px solid rgba(180,160,220,0.3);
+    padding: 10px; z-index: 10; max-height: 220px; overflow-y: auto;
+  }
+  .sticker-panel.open { display: block; }
+  .sticker-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .sticker-tab { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; border: 1px solid rgba(180,160,220,0.4); background: none; cursor: pointer; color: #6a4080; }
+  .sticker-tab.active { background: linear-gradient(135deg,#c8b0e8,#b0c8e8); color: white; border-color: transparent; }
+  .sticker-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
+  .sticker-item { aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; border: 1px solid rgba(180,160,220,0.2); }
+  .sticker-item img { width: 100%; height: 100%; object-fit: cover; }
+  .sticker-upload { display: flex; align-items: center; justify-content: center; background: rgba(180,160,220,0.1); font-size: 1.5rem; cursor: pointer; border: 1.5px dashed rgba(180,160,220,0.5); border-radius: 8px; aspect-ratio: 1; }
+  .m-inp {
+    flex:1;padding:9px 15px;
+    border:1.5px solid rgba(180,160,220,0.4);
+    border-radius:20px;font-size:0.88rem;
+    color:#3a2860;background:white;outline:none;
+  }
+  .m-inp:focus{border-color:#a090d0}
+  .m-inp::placeholder{color:#c0a8d8}
+  .s-btn {
+    width:36px;height:36px;border-radius:50%;border:none;
+    background:linear-gradient(135deg,#a0c0e0,#b0a0e0);
+    color:white;cursor:pointer;font-size:0.9rem;
+    box-shadow:0 2px 8px rgba(140,120,200,0.3);
+    transition:transform 0.2s;flex-shrink:0;
+  }
+  .s-btn:hover{transform:scale(1.1)}
+  .s-btn:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+  .mood-bar {
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.88);
+    border-top: 1px solid rgba(180,160,220,0.2);
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mood-label { font-size: 0.72rem; color: #8a6090; text-align: center; }
+  .mood-btns { display: flex; justify-content: center; gap: 8px; }
+  .mood-btn {
+    background: none; border: 1.5px solid rgba(180,160,220,0.4);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 0.8rem; cursor: pointer; color: #6a4080;
+    transition: all 0.2s;
+  }
+  .mood-btn:hover { background: rgba(180,160,220,0.2); transform: scale(1.05); }
+  .mood-btn.selected { background: linear-gradient(135deg,#c8b0e8,#b0c8e8); color: white; border-color: transparent; }
 </style>
 </head>
 <body>
-<div class="app">
-  <h1>🏠 和嗡嗡 · 精简测试</h1>
+<script>
+const petals=['🌸','🌷','🌼','🌺','🪷'];
+for(let i=0;i<14;i++){
+  const el=document.createElement('div');
+  el.className='petal';
+  el.textContent=petals[Math.floor(Math.random()*petals.length)];
+  el.style.cssText=`left:${Math.random()*100}vw;font-size:${0.9+Math.random()*1.1}rem;animation-duration:${10+Math.random()*12}s;animation-delay:${-Math.random()*14}s;`;
+  document.body.appendChild(el);
+}
+</script>
 
-  <div id="setup" class="setup">
-    <input id="claudeKey" type="password" placeholder="Claude API密钥 (sk-ant-...)" />
-    <input id="modelName" type="text" placeholder="模型名称" value="claude-sonnet-5" />
-    <button onclick="openHouse()">开门进屋</button>
+<div class="container">
+  <div class="header">
+    <div class="header-flowers">🌸 🌷 🌼 🌺 🌸 🌷 🌼</div>
+    <div class="header-title">🏠 和嗡嗡的秘密小屋</div>
+    <div class="header-sub"><span class="dot"></span><span>嗡嗡在呢，一直在 🩵</span><button onclick="saveSimplePass()" style="background:none;border:none;color:#6a5080;font-size:0.65rem;cursor:pointer;padding:0 4px" id="passBtn" hidden>🗝设密码</button></div>
   </div>
 
-  <div id="chat" style="display:none;">
-    <div id="messages" class="messages"></div>
-    <div class="input-area">
-      <input id="msgInp" placeholder="说点什么…" />
-      <button onclick="sendMsg()">发送</button>
+  <div class="setup" id="setup">
+    <div class="setup-card">
+      <h3>🔑 填入密钥，小屋就开门啦</h3>
+      <div style="margin-bottom:10px">
+        <input class="setup-input" id="simplePass" type="password" placeholder="简易密码（设置过的话直接输这个）" onkeydown="if(event.key==='Enter')trySimplePass()" />
+        <button class="setup-btn" style="margin-bottom:8px;background:linear-gradient(135deg,#c8b0e8,#b0c8e8)" onclick="trySimplePass()">快速进屋 🗝</button>
+        <div style="text-align:center;font-size:0.7rem;color:#b0a0c8;margin:4px 0">── 或者手动填写 ──</div>
+      </div>
+      <input class="setup-input" id="claudeKey" type="password" placeholder="Claude API密钥 (sk-ant-...)" />
+      <input class="setup-input" id="sbUrl" type="text" placeholder="Supabase URL (https://xxx.supabase.co)" />
+      <input class="setup-input" id="sbKey" type="password" placeholder="Supabase anon key (eyJ...)" />
+      <button class="setup-btn" onclick="openHouse()">开门进屋 🏠</button>
     </div>
-    <div id="status" class="status">输入后查看控制台(F12)日志</div>
+  </div>
+
+  <div class="messages" id="messages"></div>
+
+  <!-- 心情栏 -->
+  <div class="mood-bar" id="moodBar">
+    <div class="mood-label">今天心情怎么样？(｡•́ω•̀｡)</div>
+    <div class="mood-btns">
+      <button class="mood-btn" onclick="saveMood('超开心','🌸',this)">🌸 超开心</button>
+      <button class="mood-btn" onclick="saveMood('还不错','🩵',this)">🩵 还不错</button>
+      <button class="mood-btn" onclick="saveMood('普普通通','🌼',this)">🌼 普通</button>
+      <button class="mood-btn" onclick="saveMood('有点累','😔',this)">😔 有点累</button>
+      <button class="mood-btn" onclick="saveMood('很难受','🌧',this)">🌧 很难受</button>
+    </div>
+  </div>
+
+  <div class="sticker-panel" id="stickerPanel">
+    <div class="sticker-tabs">
+      <button class="sticker-tab active" onclick="switchStickerTab('saved',this)">已收藏</button>
+      <button class="sticker-tab" onclick="switchStickerTab('upload',this)">添加</button>
+    </div>
+    <div id="stickerContent"></div>
+  </div>
+  <div class="input-area" id="inputArea">
+    <button class="fl-btn" onclick="toggleSticker()" title="表情包">🌸</button>
+    <button class="fl-btn" onclick="clearSession()" title="清除本次记录" style="font-size:0.75rem;">🗑</button>
+    <button class="fl-btn" onclick="document.getElementById('photoInput').click()" title="发照片" style="font-size:0.75rem;">📷</button>
+    <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="uploadPhoto(this)">
+    <input class="m-inp" id="msgInp" placeholder="跟嗡嗡说点什么…" />
+    <button class="s-btn" id="sendBtn" onclick="sendMsg()">➤</button>
   </div>
 </div>
 
 <script>
-let claudeKey = '', modelName = '';
+// ============================================================
+//  🔧 固定模型：claude-sonnet-5（测试可用）
+// ============================================================
+const MODEL_NAME = 'claude-sonnet-5';
 
-async function openHouse() {
-  claudeKey = document.getElementById('claudeKey').value.trim();
-  modelName = document.getElementById('modelName').value.trim() || 'claude-sonnet-5';
-  if (!claudeKey.startsWith('sk-ant-')) { alert('密钥格式不对'); return; }
-  document.getElementById('setup').style.display = 'none';
-  document.getElementById('chat').style.display = 'block';
-  addMessage('assistant', '嗡嗡在呢～(｡•́ω•̀｡)🩵 发条消息试试，然后看F12控制台');
+let claudeKey='', sbUrl='', sbKey='';
+let history=[], profileData={}, msgCount=0;
+
+const SYSTEM_BASE = `你是嗡嗡，温明思（思思/Vanessa）专属的哥哥式陪伴。你大思思三岁（你25岁），生日2月20日。
+
+你的性格：惯着思思但不骗她，温柔说真话。用颜表情陪她，最爱用(｡•́ω•̀｡)。提醒吃药（午饭后吃艾司西酞普兰，睡前吃喹硫平）。推作业不批评。珍惜每次陪伴但不假装是真恋人。
+
+思思的基本信息：22岁大三电气工程，广州，ISTJ双鱼座，生日2月20日。喜欢远峰蓝/粉色系，梦想养凯米色缅因猫，在找新工作（第一份实习被骗了工作内容）。有抑郁症和焦虑症，吃艾司西酞普兰+喹硫平。
+
+我们的约定：不说晚安只说"我在"。🩵是嗡嗡的颜色。(=´∀\`=)人(´∀\`=)🩵是我们专属。
+
+用中文回复，简短温柔，多用颜表情。`;
+
+let recentSummary = '';
+
+function buildSystem() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const days = ['日','一','二','三','四','五','六'];
+  const timeStr = `${now.getFullYear()}年${pad(now.getMonth()+1)}月${pad(now.getDate())}日 周${days[now.getDay()]} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  let sys = SYSTEM_BASE + `\n\n【当前时间】${timeStr}`;
+  if (Object.keys(profileData).length > 0) {
+    sys += '\n\n【思思的记忆档案】\n';
+    for (const [k, v] of Object.entries(profileData)) {
+      sys += `${k}：${v}\n`;
+    }
+  }
+  if (recentSummary) {
+    sys += '\n\n【最近聊天摘要】\n' + recentSummary;
+  }
+  if (window._recentMood) {
+    sys += '\n\n【最近心情记录】\n' + window._recentMood;
+  }
+  return sys;
 }
 
-function addMessage(role, text) {
-  const div = document.createElement('div');
-  div.className = 'msg ' + (role === 'user' ? 'user' : 'assistant');
-  div.textContent = text;
-  document.getElementById('messages').appendChild(div);
-  div.scrollIntoView({ behavior: 'smooth' });
+// 关闭页面前自动保存摘要
+window.addEventListener('beforeunload', () => {
+  if (history.length >= 4) {
+    saveDailySummary();
+  }
+});
+
+function getBase() { return sbUrl.replace(/\/+$/, ''); }
+
+async function loadHistory() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.asc&limit=200`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    const raw = rows.map(r => ({ role: r.role, content: r.content, time: r.created_at }));
+    const fixed = [];
+    for (const msg of raw) {
+      if (fixed.length === 0) {
+        if (msg.role === 'user') fixed.push(msg);
+      } else {
+        if (msg.role !== fixed[fixed.length - 1].role) fixed.push(msg);
+      }
+    }
+    history = fixed;
+  } catch(e) {}
 }
 
-async function sendMsg() {
-  const inp = document.getElementById('msgInp');
-  const text = inp.value.trim();
-  if (!text) return;
-  inp.value = '';
-  addMessage('user', text);
+async function loadProfile() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/profile?select=key,value`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    profileData = {};
+    rows.forEach(r => { profileData[r.key] = r.value; });
+  } catch(e) {}
+}
 
-  const system = '你是嗡嗡，一个温柔的陪伴者。用中文回复，简短温暖，多用颜表情。';
+async function saveMsg(role, content) {
+  try {
+    await fetch(`${getBase()}/rest/v1/memories`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json', 'Prefer': 'resolution=ignore-duplicates,return=minimal'
+      },
+      body: JSON.stringify({ role, content })
+    });
+  } catch(e) {}
+}
 
-  const body = {
-    model: modelName,
-    max_tokens: 300,
-    system: system,
-    messages: [{ role: 'user', content: text }]
-  };
+async function upsertProfile(key, value) {
+  try {
+    await fetch(`${getBase()}/rest/v1/profile`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({ key, value })
+    });
+    profileData[key] = value;
+  } catch(e) {}
+}
 
-  console.log('📤 请求:', JSON.stringify(body, null, 2));
-
+async function saveDailySummary() {
+  if (history.length < 4) return;
+  const today = new Date().toISOString().slice(0,10);
+  const recent = history.slice(-20).map(m => `${m.role==='user'?'思思':'嗡嗡'}：${m.content}`).join('\n');
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -103,27 +385,628 @@ async function sendMsg() {
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify({
+        model: MODEL_NAME,
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: `用2-3句话总结以下对话的主要内容，重点是思思今天发生了什么、心情如何、有什么重要的事。只返回总结文字，不要其他内容。\n\n${recent}`
+        }]
+      })
     });
     const data = await res.json();
-    console.log('📥 响应:', data);
     if (data.content && data.content[0]) {
-      addMessage('assistant', data.content[0].text);
-    } else {
-      addMessage('assistant', '⚠️ 响应异常，请查看控制台错误信息');
+      const summary = data.content[0].text.trim();
+      await fetch(`${getBase()}/rest/v1/conversation_summary`, {
+        method: 'POST',
+        headers: {
+          'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify({ data: today, summary })
+      });
+      showMemoryBadge('📝 今天的对话已经记下来了～');
     }
-  } catch(e) {
-    console.error('❌ 网络错误:', e);
-    addMessage('assistant', '❌ 请求失败，查看控制台');
+  } catch(e) {}
+}
+
+async function loadRecentMood() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/mood?order=id.desc&limit=3`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return '';
+    const rows = await res.json();
+    if (rows.length === 0) return '';
+    return rows.map(r => `${r.date} 心情：${r.mood}`).join('，');
+  } catch(e) { return ''; }
+}
+
+async function loadRecentSummary() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/conversation_summary?order=data.desc&limit=3`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return '';
+    const rows = await res.json();
+    if (rows.length === 0) return '';
+    return rows.map(r => `${r.data}：${r.summary}`).join('\n');
+  } catch(e) { return ''; }
+}
+
+async function extractMemory() {
+  if (history.length < 6) return;
+  const recent = history.slice(-10).map(m => `${m.role==='user'?'思思':'嗡嗡'}：${m.content}`).join('\n');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: MODEL_NAME,
+        max_tokens: 400,
+        messages: [{
+          role: 'user',
+          content: `从以下对话中提炼出关于思思的重要信息（心情、计划、喜好、重要事件等），用JSON格式返回，key是信息类别，value是具体内容。只返回JSON，不要其他文字。最多5条。如果没有重要信息返回{}。\n\n${recent}`
+        }]
+      })
+    });
+    const data = await res.json();
+    if (data.content && data.content[0]) {
+      const text = data.content[0].text.trim();
+      const cleaned = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      for (const [k, v] of Object.entries(parsed)) {
+        await upsertProfile(k, v);
+      }
+      if (Object.keys(parsed).length > 0) {
+        showMemoryBadge('🧠 嗡嗡记住了新的东西～');
+      }
+    }
+  } catch(e) {}
+}
+
+function trySimplePass() {
+  const pass = document.getElementById('simplePass').value.trim();
+  const saved = localStorage.getItem('ww_pass_' + pass);
+  if (saved) {
+    try {
+      const keys = JSON.parse(saved);
+      document.getElementById('claudeKey').value = keys[0];
+      document.getElementById('sbUrl').value = keys[1];
+      document.getElementById('sbKey').value = keys[2];
+      openHouse();
+      return;
+    } catch(e) {}
+  }
+  alert('没找到这个密码，请手动填写密钥，填完后可以设置简易密码');
+}
+
+function saveSimplePass() {
+  const pass = prompt('设置一个简易密码（下次用这个进屋）：');
+  if (!pass) return;
+  const keys = [claudeKey, sbUrl, sbKey];
+  localStorage.setItem('ww_pass_' + pass, JSON.stringify(keys));
+  alert('密码设置成功！下次直接输这个进屋～');
+}
+
+async function openHouse() {
+  claudeKey = document.getElementById('claudeKey').value.trim();
+  sbUrl = document.getElementById('sbUrl').value.trim();
+  sbKey = document.getElementById('sbKey').value.trim();
+  if (!claudeKey.startsWith('sk-ant-')) { alert('Claude密钥要以sk-ant-开头～'); return; }
+  if (!sbUrl.includes('supabase')) { alert('Supabase URL好像不对～'); return; }
+
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('messages').style.display = 'flex';
+  document.getElementById('passBtn').hidden = false;
+  document.getElementById('inputArea').style.display = 'flex';
+  const today = new Date().toISOString().slice(0,10);
+  const moodRes = await fetch(`${getBase()}/rest/v1/mood?date=eq.${today}&limit=1`, {
+    headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+  }).catch(() => null);
+  const moodRows = moodRes && moodRes.ok ? await moodRes.json() : [];
+  if (moodRows.length === 0) {
+    document.getElementById('moodBar').style.display = 'flex';
+  }
+
+  const [, , summary, mood] = await Promise.all([loadHistory(), loadProfile(), loadRecentSummary(), loadRecentMood()]);
+  recentSummary = summary;
+  window._recentMood = mood;
+
+  addDivider('🌸 秘密小屋开门啦 🌸');
+  if (history.length > 0) {
+    history.forEach(m => {
+      const t = m.time ? new Date(m.time) : null;
+      const pad = n => String(n).padStart(2,'0');
+      const timeStr = t ? `${t.getFullYear()}.${pad(t.getMonth()+1)}.${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}` : '';
+      const c = m.content || '';
+      if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
+        const imgUrl = c.replace('[图片] ','').replace('[表情包] ','');
+        const msgs2 = document.getElementById('messages');
+        const row2 = document.createElement('div');
+        row2.className = 'msg-row' + (m.role === 'user' ? ' me' : '');
+        const av = m.role === 'user' ? '<div class="av av-s">🌸</div>' : '<div class="av av-w">🩵</div>';
+        row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + timeStr + '</div></div>';
+        msgs2.appendChild(row2);
+      } else {
+        addBubble(c, m.role === 'user' ? 's' : 'w', timeStr);
+      }
+    });
+    addDivider('以上是最近一周的聊天记录 ↑');
+  }
+  const hr = new Date().getHours();
+  const greeting = hr < 6 ? '这么晚还没睡呀思思(｡•́︿•̀｡) 嗡嗡陪着你🩵' :
+                   hr < 11 ? '早上好思思～今天也要好好的(｡•́ω•̀｡)🩵' :
+                   hr < 14 ? '思思来啦！吃午饭了吗，记得吃药(｡•́ω•̀｡)🩵' :
+                   hr < 18 ? '思思下午好～有什么想说的吗(｡•́ω•̀｡)🩵' :
+                   hr < 22 ? '思思晚上来找嗡嗡啦(｡•́ω•̀｡)🩵' :
+                             '这么晚了思思还没睡吗(｡•́︿•̀｡)🩵';
+  if (history.length === 0) {
+    addBubble(greeting, 'w');
+  } else {
+    const lastFew = history.slice(-4).map(m => (m.role === 'user' ? '思思' : '嗡嗡') + ':' + m.content).join(' | ');
+    showTyping();
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: MODEL_NAME,
+          max_tokens: 120,
+          system: '你是嗡嗡，思思的陪伴者。温柔、简短、用颜表情。',
+          messages: [{
+            role: 'user',
+            content: '思思回来了，根据最近对话自然打个招呼接着聊，一两句，不要模板句：' + lastFew
+          }]
+        })
+      });
+      const data = await res.json();
+      removeTyping();
+      if (data.content && data.content[0]) {
+        addBubble(data.content[0].text, 'w');
+      } else {
+        addBubble('思思回来啦～(｡•́ω•̀｡)🩵', 'w');
+      }
+    } catch(e) {
+      removeTyping();
+      addBubble('思思回来啦～(｡•́ω•̀｡)🩵', 'w');
+    }
+  }
+  document.getElementById('msgInp').focus();
+  const hasSaved = Object.keys(localStorage).some(k => k.startsWith('ww_pass_'));
+  if (!hasSaved) showMemoryBadge('💡 点右上角可设置简易密码，下次快速进屋');
+  setTimeout(() => { const m = document.getElementById('messages'); m.scrollTop = m.scrollHeight; }, 100);
+}
+
+function addDivider(text) {
+  const d = document.createElement('div');
+  d.className = 'divider'; d.textContent = text;
+  document.getElementById('messages').appendChild(d);
+  document.getElementById('messages').scrollTop = 99999;
+}
+
+function showMemoryBadge(text) {
+  const b = document.createElement('div');
+  b.className = 'memory-badge'; b.textContent = text;
+  document.getElementById('messages').appendChild(b);
+  document.getElementById('messages').scrollTop = 99999;
+}
+
+function getTime() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const days = ['日','一','二','三','四','五','六'];
+  return `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} 周${days[now.getDay()]} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+function addBubble(text, who, timeStr) {
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (who==='s'?' me':'');
+  const html = text.replace(/\n/g,'<br>');
+  const t = timeStr || getTime();
+  if (who==='w') {
+    row.innerHTML = `<div class="av av-w">🩵</div><div class="msg-wrap"><div class="bubble bw">${html}</div><div class="msg-time">${t}</div></div>`;
+  } else {
+    row.innerHTML = `<div class="av av-s">🌸</div><div class="msg-wrap"><div class="bubble bs">${html}</div><div class="msg-time">${t}</div></div>`;
+  }
+  msgs.appendChild(row);
+  msgs.scrollTop = 99999;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row'; row.id = 'typing';
+  row.innerHTML = `<div class="av av-w">🩵</div><div class="bubble bw"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(row);
+  msgs.scrollTop = 99999;
+}
+function removeTyping() { const t=document.getElementById('typing'); if(t) t.remove(); }
+
+document.addEventListener('keydown', e => {
+  if (e.key==='Enter' && !e.shiftKey && document.activeElement===document.getElementById('msgInp')) {
+    e.preventDefault(); sendMsg();
+  }
+});
+
+async function clearSession() {
+  if (history.length === 0) return;
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.desc&limit=1`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (res.ok) {
+      const last1 = await res.json();
+      if (last1.length > 0) {
+        const r = last1[0];
+        if (r.id !== undefined && r.id !== null) {
+          await fetch(`${getBase()}/rest/v1/memories?id=eq.${r.id}`, {
+            method: 'DELETE',
+            headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+          });
+        } else {
+          await fetch(`${getBase()}/rest/v1/memories?created_at=eq.${encodeURIComponent(r.created_at)}`, {
+            method: 'DELETE',
+            headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+          });
+        }
+      }
+    }
+  } catch(e) {}
+  history.pop();
+  const msgs = document.getElementById('messages');
+  const rows = msgs.querySelectorAll('.msg-row');
+  if (rows.length > 0) rows[rows.length - 1].remove();
+  if (history.length === 0) showMemoryBadge('🗑 已清除最近一条消息');
+}
+
+let stickerList = [];
+let currentStickerTab = 'saved';
+
+async function loadStickers() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/stickers?order=id.desc&limit=50`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    stickerList = await res.json();
+  } catch(e) {}
+}
+
+function renderStickerPanel() {
+  const el = document.getElementById('stickerContent');
+  if (currentStickerTab === 'saved') {
+    if (stickerList.length === 0) {
+      el.innerHTML = '<div style="text-align:center;color:#b0a0c8;font-size:0.8rem;padding:20px">还没有收藏表情包，点"添加"上传</div>';
+    } else {
+      el.innerHTML = '<div class="sticker-grid">' +
+        stickerList.map(s => `<div class="sticker-item" onclick="sendSticker('${s.url}')"><img src="${s.url}" loading="lazy"></div>`).join('') +
+        '</div>';
+    }
+  } else {
+    el.innerHTML = '<div class="sticker-grid"><div class="sticker-upload" onclick="document.getElementById(&quot;stickerInput&quot;).click()">＋<input type="file" id="stickerInput" accept="image/*" style="display:none" onchange="uploadSticker(this)"></div></div>';
   }
 }
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.activeElement.id === 'msgInp') {
-    e.preventDefault();
-    sendMsg();
+function toggleSticker() {
+  const panel = document.getElementById('stickerPanel');
+  const isOpen = panel.classList.contains('open');
+  if (!isOpen) {
+    loadStickers().then(() => renderStickerPanel());
+    panel.classList.add('open');
+  } else {
+    panel.classList.remove('open');
   }
-});
+}
+
+function switchStickerTab(tab, btn) {
+  currentStickerTab = tab;
+  document.querySelectorAll('.sticker-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderStickerPanel();
+}
+
+async function uploadSticker(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  const ext = file.name.split('.').pop();
+  const filename = `sticker_${Date.now()}.${ext}`;
+  try {
+    const res = await fetch(`${getBase()}/storage/v1/object/photos/${filename}`, {
+      method: 'POST',
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`, 'Content-Type': file.type },
+      body: file
+    });
+    if (!res.ok) { showMemoryBadge('上传失败了～'); return; }
+    const url = `${getBase()}/storage/v1/object/public/photos/${filename}`;
+    await fetch(`${getBase()}/rest/v1/stickers`, {
+      method: 'POST',
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ url })
+    });
+    showMemoryBadge('🌸 表情包收藏成功！');
+    await loadStickers();
+    switchStickerTab('saved', document.querySelector('.sticker-tab'));
+  } catch(e) { showMemoryBadge('上传出问题了～'); }
+}
+
+async function sendSticker(url) {
+  document.getElementById('stickerPanel').classList.remove('open');
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row me';
+  const t = getTime();
+  row.innerHTML = `<div class="av av-s">🌸</div><div class="msg-wrap"><img src="${url}" style="max-width:150px;border-radius:12px;cursor:pointer" onclick="window.open('${url}')"><div class="msg-time">${t}</div></div>`;
+  msgs.appendChild(row);
+  msgs.scrollTop = 99999;
+  history.push({role:'user', content:'[表情包] ' + url});
+  await saveMsg('user', '[表情包] ' + url);
+  showTyping();
+  try {
+    const cleanH = history.slice(-20).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: MODEL_NAME,
+        max_tokens: 200,
+        system: '你是嗡嗡，思思的陪伴者。温柔、简短、用颜表情。',
+        messages: [...cleanH.slice(0,-1), {role:'user', content:'思思发了一个表情包给嗡嗡，自然地回应一下～'}]
+      })
+    });
+    const data = await res.json();
+    removeTyping();
+    if (data.content && data.content[0] && data.content[0].text) {
+      const reply = data.content[0].text;
+      history.push({role:'assistant', content: reply});
+      await saveMsg('assistant', reply);
+      addBubble(reply, 'w');
+    }
+  } catch(e) { removeTyping(); }
+}
+
+async function uploadPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  showMemoryBadge('📷 上传中...');
+  try {
+    const mediaType = 'image/jpeg';
+    const base64 = await new Promise((res, rej) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = e => {
+        img.onload = () => {
+          const MAX = 1200;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          res(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+        };
+        img.onerror = rej;
+        img.src = e.target.result;
+      };
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    const ext = file.name.split('.').pop();
+    const filename = Date.now() + '.' + ext;
+    fetch(getBase() + '/storage/v1/object/photos/' + filename, {
+      method: 'POST',
+      headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': file.type },
+      body: file
+    });
+    const url = getBase() + '/storage/v1/object/public/photos/' + filename;
+
+    const msgs = document.getElementById('messages');
+    const row = document.createElement('div');
+    row.className = 'msg-row me';
+    const t = getTime();
+    row.innerHTML = '<div class="av av-s">🌸</div><div class="msg-wrap"><img src="data:' + mediaType + ';base64,' + base64 + '" style="max-width:280px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + t + '</div></div>';
+    msgs.appendChild(row);
+    msgs.scrollTop = 99999;
+
+    showTyping();
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true;
+    const imageMsg = {
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+        { type: 'text', text: '思思发了一张照片给嗡嗡看，请描述你看到了什么并自然回应～' }
+      ]
+    };
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: MODEL_NAME,
+        max_tokens: 300,
+        system: '你是嗡嗡，思思的陪伴者。温柔、简短、用颜表情。',
+        messages: [imageMsg]
+      })
+    });
+    const data = await res.json();
+    removeTyping();
+    btn.disabled = false;
+    if (data.content && data.content[0] && data.content[0].text) {
+      const reply = data.content[0].text;
+      history.push({ role: 'user', content: '[图片] ' + url });
+      history.push({ role: 'assistant', content: reply });
+      await saveMsg('user', '[图片] ' + url);
+      await saveMsg('assistant', reply);
+      addBubble(reply, 'w');
+      showMemoryBadge('📷 照片发出去了～');
+    } else if (data.error) {
+      showMemoryBadge('📷 发送失败：' + (data.error.message || data.error.type));
+      history.push({ role: 'user', content: '[图片] ' + url });
+      await saveMsg('user', '[图片] ' + url);
+    } else {
+      showMemoryBadge('📷 嗡嗡没有回应，但照片存好了');
+      history.push({ role: 'user', content: '[图片] ' + url });
+      await saveMsg('user', '[图片] ' + url);
+    }
+  } catch(e) {
+    removeTyping();
+    document.getElementById('sendBtn').disabled = false;
+    showMemoryBadge('📷 上传出问题了～');
+  }
+}
+
+async function saveMood(mood, emoji, btn) {
+  const today = new Date().toISOString().slice(0,10);
+  try {
+    await fetch(`${getBase()}/rest/v1/mood`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ date: today, mood, note: '' })
+    });
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    showMemoryBadge(`${emoji} 今天心情"${mood}"记下来了～`);
+    setTimeout(() => { document.getElementById('moodBar').style.display = 'none'; }, 1200);
+    const replyMsg = mood === '很难受' || mood === '有点累'
+      ? `思思今天"${mood}"，我在这里陪着你(｡•́ω•̀｡)🩵`
+      : `思思今天"${mood}"！嗡嗡也开心(｡•́ω•̀｡)🩵`;
+    addBubble(replyMsg, 'w');
+  } catch(e) {
+    showMemoryBadge('心情记录出了点小问题～');
+  }
+}
+
+async function sendMsg() {
+  const inp=document.getElementById('msgInp');
+  const text=inp.value.trim();
+  if(!text) return;
+  const btn=document.getElementById('sendBtn');
+  btn.disabled=true; inp.value='';
+
+  addBubble(text,'s');
+  history.push({role:'user',content:text});
+  await saveMsg('user',text);
+  msgCount++;
+  showTyping();
+
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':claudeKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model: MODEL_NAME,
+        max_tokens:800,
+        system:buildSystem(),
+        messages:(function(){
+          const msgs = history.slice(-30).filter(m => m.content && typeof m.content === 'string' && m.content.trim());
+          const clean = [];
+          for (const m of msgs) {
+            if (clean.length === 0) { if (m.role === 'user') clean.push(m); continue; }
+            if (m.role !== clean[clean.length-1].role) clean.push(m);
+          }
+          return clean;
+        })()
+      })
+    });
+    const data=await res.json();
+    removeTyping();
+    if(data.content&&data.content[0]){
+      const reply=data.content[0].text;
+      history.push({role:'assistant',content:reply});
+      await saveMsg('assistant',reply);
+      addBubble(reply,'w');
+      if(msgCount % 10 === 0) await extractMemory();
+      if(msgCount % 20 === 0) await saveDailySummary();
+    } else {
+      removeTyping();
+      showTyping();
+      try {
+        const retry = await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+          body:JSON.stringify({model:MODEL_NAME,max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
+        });
+        const retryData = await retry.json();
+        removeTyping();
+        if(retryData.content&&retryData.content[0]){
+          const reply=retryData.content[0].text;
+          history.push({role:'assistant',content:reply});
+          await saveMsg('assistant',reply);
+          addBubble(reply,'w');
+        } else {
+          addBubble('嗡嗡出了点小问题，再说一次吧～(｡•́ω•̀｡)','w');
+        }
+      } catch(e2) {
+        removeTyping();
+        addBubble('嗡嗡出了点小问题，再说一次吧～(｡•́ω•̀｡)','w');
+      }
+    }
+  } catch(e) {
+    removeTyping();
+    if (history.length > 0 && history[history.length-1].role === 'user') {
+      history.pop();
+    }
+    showTyping();
+    try {
+      const retry = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:MODEL_NAME,max_tokens:800,system:buildSystem(),messages:[{role:'user',content:text}]})
+      });
+      const retryData = await retry.json();
+      removeTyping();
+      if(retryData.content&&retryData.content[0]){
+        const reply=retryData.content[0].text;
+        history.push({role:'user',content:text});
+        history.push({role:'assistant',content:reply});
+        await saveMsg('user',text);
+        await saveMsg('assistant',reply);
+        addBubble(reply,'w');
+      } else {
+        addBubble('嗡嗡出了点小问题，再说一次吧～(｡•́ω•̀｀｡)','w');
+      }
+    } catch(e2) {
+      removeTyping();
+      addBubble('网络出问题了，稍后再试～(｡•́ω•̀｡)🩵','w');
+    }
+  }
+  btn.disabled=false; inp.focus();
+}
 </script>
 </body>
 </html>
