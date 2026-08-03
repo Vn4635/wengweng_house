@@ -922,7 +922,7 @@ async function saveMood(mood, emoji, btn) {
   }
 }
 
-// ========== 核心 sendMsg（带详细日志） ==========
+// ========== 核心 sendMsg（修复 time 字段问题） ==========
 async function sendMsg() {
   const inp=document.getElementById('msgInp');
   const text=inp.value.trim();
@@ -945,8 +945,11 @@ async function sendMsg() {
   showTyping();
 
   try {
+    // ========== 🔧 关键修复：去掉 time 字段，只保留 role 和 content ==========
+    const cleanHistoryForAPI = history.map(({ role, content }) => ({ role, content }));
+    
     // 构建干净的 messages（过滤掉图片、表情包等）
-    let cleanMsgs = history.slice(-30).filter(m => {
+    let cleanMsgs = cleanHistoryForAPI.slice(-15).filter(m => {
       if (!m || !m.role) return false;
       if (!m.content || typeof m.content !== 'string') return false;
       if (m.content.trim() === '') return false;
