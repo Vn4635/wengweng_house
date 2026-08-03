@@ -272,6 +272,8 @@ const MODEL_NAME = 'claude-sonnet-4-6';
 
 let claudeKey='', sbUrl='', sbKey='';
 let history=[], profileData={}, msgCount=0;
+let importantMemories = [];
+let dailySummary = '';
 
 // ========== 系统提示 ==========
 const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
@@ -283,6 +285,12 @@ function getSystemMessage() {
   let sys = SYSTEM_PROMPT;
   if (latestMood) {
     sys += ' 最近心情：' + latestMood;
+  }
+  if (dailySummary) {
+    sys += ' 今日对话摘要：' + dailySummary;
+  }
+  if (importantMemories.length > 0) {
+    sys += ' 重要记忆：' + importantMemories.join('；');
   }
   return sys;
 }
@@ -313,7 +321,60 @@ function cleanHistory() {
   history = fixed;
 }
 
-// ========== 加载历史（不带 time 字段） ==========
+// ========== 加载重要记忆 ==========
+async function loadImportantMemories() {
+  try {
+    const res = await fetch(`${getBase()}/rest/v1/important_memories?order=id.desc&limit=10`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    importantMemories = rows.map(r => r.memory).filter(Boolean);
+    console.log('🧠 加载重要记忆:', importantMemories.length, '条');
+  } catch(e) {
+    console.warn('⚠️ 加载重要记忆失败:', e);
+  }
+}
+
+// ========== 保存重要记忆 ==========
+async function saveImportantMemory(memory) {
+  if (!memory || memory.trim() === '') return;
+  try {
+    await fetch(`${getBase()}/rest/v1/important_memories`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ memory: memory.trim() })
+    });
+    console.log('🧠 重要记忆已保存:', memory);
+    // 重新加载
+    await loadImportantMemories();
+  } catch(e) {
+    console.warn('⚠️ 保存重要记忆失败:', e);
+  }
+}
+
+// ========== 加载每日摘要 ==========
+async function loadDailySummary() {
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const res = await fetch(`${getBase()}/rest/v1/conversation_summary?data=eq.${today}&limit=1`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (rows.length > 0) {
+      dailySummary = rows[0].summary;
+      console.log('📝 加载今日摘要:', dailySummary);
+    }
+  } catch(e) {
+    console.warn('⚠️ 加载摘要失败:', e);
+  }
+}
+
+// ========== 加载历史 ==========
 async function loadHistory() {
   try {
     console.log('📂 加载历史记录...');
@@ -326,7 +387,6 @@ async function loadHistory() {
     }
     const rows = await res.json();
     console.log('📂 从Supabase读取到', rows.length, '条记录');
-    // 只保留 role 和 content，不要 time
     const raw = rows.map(r => ({ role: r.role, content: r.content }));
     const fixed = [];
     for (const msg of raw) {
@@ -340,9 +400,6 @@ async function loadHistory() {
     }
     history = fixed;
     console.log('📂 加载后history长度:', history.length);
-    if (history.length > 0) {
-      console.log('📂 最近3条:', history.slice(-3));
-    }
     return history;
   } catch(e) {
     console.warn('⚠️ 加载历史异常:', e);
@@ -350,7 +407,7 @@ async function loadHistory() {
   }
 }
 
-// ========== 加载心情（从 mood 表查最新） ==========
+// ========== 加载心情 ==========
 async function loadLatestMood() {
   try {
     const res = await fetch(`${getBase()}/rest/v1/mood?order=id.desc&limit=1`, {
@@ -362,21 +419,6 @@ async function loadLatestMood() {
     latestMood = rows[0].mood;
     console.log('💚 最新心情:', latestMood);
     return latestMood;
-  } catch(e) { return ''; }
-}
-
-// ========== 加载摘要（从 conversation_summary 表查最新） ==========
-async function loadLatestSummary() {
-  try {
-    const res = await fetch(`${getBase()}/rest/v1/conversation_summary?order=data.desc&limit=1`, {
-      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-    });
-    if (!res.ok) return '';
-    const rows = await res.json();
-    if (rows.length === 0) return '';
-    recentSummary = rows[0].summary;
-    console.log('📝 最新摘要:', recentSummary);
-    return recentSummary;
   } catch(e) { return ''; }
 }
 
@@ -430,6 +472,7 @@ async function upsertProfile(key, value) {
   } catch(e) {}
 }
 
+// ========== 保存每日摘要 ==========
 async function saveDailySummary() {
   if (history.length < 4) return;
   const today = new Date().toISOString().slice(0,10);
@@ -461,15 +504,16 @@ async function saveDailySummary() {
         },
         body: JSON.stringify({ data: today, summary })
       });
-      recentSummary = summary;
+      dailySummary = summary;
       showMemoryBadge('📝 今天的对话已经记下来了～');
     }
   } catch(e) {}
 }
 
-async function extractMemory() {
-  if (history.length < 6) return;
-  const recent = history.slice(-10).map(m => `${m.role==='user'?'思思':'嗡嗡'}：${m.content}`).join('\n');
+// ========== 提取重要记忆 ==========
+async function extractAndSaveImportantMemories() {
+  if (history.length < 8) return;
+  const recent = history.slice(-15).map(m => `${m.role==='user'?'思思':'嗡嗡'}：${m.content}`).join('\n');
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -481,23 +525,27 @@ async function extractMemory() {
       },
       body: JSON.stringify({
         model: MODEL_NAME,
-        max_tokens: 400,
-        messages: [{role:'user', content: `从以下对话中提炼出关于思思的重要信息（心情、计划、喜好、重要事件等），用JSON格式返回，key是信息类别，value是具体内容。只返回JSON，不要其他文字。最多5条。如果没有重要信息返回{}。\n\n${recent}`}]
+        max_tokens: 500,
+        messages: [{role:'user', content: `从以下对话中提炼出关于思思的重要、值得长期记住的信息（心情状态、重要计划、喜好、重要事件、身体状况等），用简洁的要点列出，每条不超过20个字。最多3条。如果没有值得长期记住的信息，返回"无"。\n\n${recent}`}]
       })
     });
     const data = await res.json();
     if (data.content && data.content[0]) {
       const text = data.content[0].text.trim();
-      const cleaned = text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
-      for (const [k, v] of Object.entries(parsed)) {
-        await upsertProfile(k, v);
-      }
-      if (Object.keys(parsed).length > 0) {
-        showMemoryBadge('🧠 嗡嗡记住了新的东西～');
+      if (text && text !== '无') {
+        const lines = text.split('\n').filter(line => line.trim().length > 0);
+        for (const line of lines) {
+          const clean = line.replace(/^[-•*\d.]\s*/, '').trim();
+          if (clean.length > 5) {
+            await saveImportantMemory(clean);
+          }
+        }
+        showMemoryBadge('🧠 嗡嗡记住了重要的事情～');
       }
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('⚠️ 提取重要记忆失败:', e);
+  }
 }
 
 function trySimplePass() {
@@ -524,24 +572,25 @@ function saveSimplePass() {
   alert('密码设置成功！下次直接输这个进屋～');
 }
 
-// ========== 手动刷新聊天记录 ==========
+// ========== 手动刷新 ==========
 async function manualRefresh() {
   if (!sbUrl || !sbKey) return;
-  showMemoryBadge('🔄 正在刷新聊天记录...');
+  showMemoryBadge('🔄 正在刷新...');
   await loadHistory();
-  // 重新渲染
+  await loadImportantMemories();
+  await loadDailySummary();
+  await loadLatestMood();
+  
   const msgs = document.getElementById('messages');
-  // 保留 divider 和 badge
-  const children = msgs.children;
   const toRemove = [];
-  for (let i = 0; i < children.length; i++) {
-    const el = children[i];
+  for (let i = 0; i < msgs.children.length; i++) {
+    const el = msgs.children[i];
     if (!el.classList.contains('divider') && !el.classList.contains('memory-badge')) {
       toRemove.push(el);
     }
   }
   toRemove.forEach(el => el.remove());
-  // 重新渲染历史
+  
   history.forEach(m => {
     const c = m.content || '';
     if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
@@ -555,7 +604,7 @@ async function manualRefresh() {
       addBubble(c, m.role === 'user' ? 's' : 'w', '');
     }
   });
-  showMemoryBadge('✅ 已刷新，共 ' + history.length + ' 条记录');
+  showMemoryBadge('✅ 已刷新，共 ' + history.length + ' 条记录，记忆 ' + importantMemories.length + ' 条');
   msgs.scrollTop = msgs.scrollHeight;
 }
 
@@ -584,10 +633,11 @@ async function openHouse() {
   await loadHistory();
   await loadProfile();
   await loadLatestMood();
-  await loadLatestSummary();
+  await loadImportantMemories();
+  await loadDailySummary();
   cleanHistory();
   console.log('🏠 最终history长度:', history.length);
-  console.log('🏠 最近心情:', latestMood);
+  console.log('🏠 重要记忆:', importantMemories.length, '条');
 
   addDivider('🌸 秘密小屋开门啦 🌸');
   if (history.length > 0) {
@@ -630,7 +680,7 @@ async function openHouse() {
         },
         body: JSON.stringify({
           model: MODEL_NAME,
-          max_tokens: 120,
+          max_tokens: 150,
           messages: [{role:'user', content: getSystemMessage() + '\n\n思思回来了，根据最近对话自然打个招呼接着聊，一两句，不要模板句：' + lastFew}]
         })
       });
@@ -644,7 +694,6 @@ async function openHouse() {
     } catch(e) {
       removeTyping();
       addBubble('思思回来啦～(｡•́ω•̀｡)🩵', 'w');
-      console.warn('打招呼失败:', e);
     }
   }
   document.getElementById('msgInp').focus();
@@ -978,6 +1027,10 @@ async function saveMood(mood, emoji, btn) {
       ? `思思今天"${mood}"，我在这里陪着你(｡•́ω•̀｡)🩵`
       : `思思今天"${mood}"！嗡嗡也开心(｡•́ω•̀｡)🩵`;
     addBubble(replyMsg, 'w');
+    // 保存重要记忆
+    if (mood === '很难受' || mood === '有点累') {
+      await saveImportantMemory('思思今天心情：' + mood);
+    }
   } catch(e) {
     showMemoryBadge('心情记录出了点小问题～');
   }
@@ -1035,6 +1088,7 @@ async function sendMsg() {
     }
 
     console.log('📤 发送给Claude的消息数:', finalMsgs.length);
+    console.log('📤 系统提示包含记忆:', importantMemories.length, '条');
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -1060,8 +1114,12 @@ async function sendMsg() {
       history.push({role:'assistant',content:reply});
       await saveMsg('assistant',reply);
       addBubble(reply,'w');
-      if(msgCount % 10 === 0) await extractMemory();
-      if(msgCount % 20 === 0) await saveDailySummary();
+      if(msgCount % 8 === 0) {
+        await extractAndSaveImportantMemories();
+      }
+      if(msgCount % 20 === 0) {
+        await saveDailySummary();
+      }
     } else {
       console.warn('⚠️ Claude返回无内容:', data);
       const fallback = '嗡嗡在呢～(｡•́ω•̀｡)🩵';
