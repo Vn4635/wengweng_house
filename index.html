@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>嗡嗡</title>
+<title>和嗡嗡的秘密小屋 🏠</title>
 
-<!-- ===== PWA 配置：用你的图片做图标 ===== -->
+<!-- ===== PWA 配置 ===== -->
 <link rel="manifest" href="data:application/json,{
   &quot;name&quot;: &quot;和嗡嗡的秘密小屋&quot;,
   &quot;short_name&quot;: &quot;嗡嗡小屋&quot;,
@@ -15,14 +15,14 @@
   &quot;theme_color&quot;: &quot;#c8b8e8&quot;,
   &quot;icons&quot;: [
     {
-      &quot;src&quot;: &quot;https://i.postimg.cc/L5PGjZpP/image.jpg&quot;,
+      &quot;src&quot;: &quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23b8d0e8'/%3E%3Ctext x='50' y='72' font-size='55' text-anchor='middle'%3E🩵%3C/text%3E%3C/svg%3E&quot;,
       &quot;sizes&quot;: &quot;192x192&quot;,
-      &quot;type&quot;: &quot;image/jpeg&quot;
+      &quot;type&quot;: &quot;image/svg+xml&quot;
     },
     {
-      &quot;src&quot;: &quot;https://i.postimg.cc/L5PGjZpP/image.jpg&quot;,
+      &quot;src&quot;: &quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23b8d0e8'/%3E%3Ctext x='50' y='72' font-size='55' text-anchor='middle'%3E🩵%3C/text%3E%3C/svg%3E&quot;,
       &quot;sizes&quot;: &quot;512x512&quot;,
-      &quot;type&quot;: &quot;image/jpeg&quot;
+      &quot;type&quot;: &quot;image/svg+xml&quot;
     }
   ]
 }">
@@ -356,8 +356,20 @@ let latestMood = '';
 // ========== 系统提示 ==========
 const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
 
+// ===== 获取当前完整时间（年/月/日/时/分/星期几） =====
+function getCurrentTime() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const days = ['日', '一', '二', '三', '四', '五', '六'];
+  return `${now.getFullYear()}年${pad(now.getMonth() + 1)}月${pad(now.getDate())}日 周${days[now.getDay()]} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
 function getSystemMessage() {
   let sys = SYSTEM_PROMPT;
+  
+  // ===== 注入实时时间 =====
+  sys += '\n⏰ 当前时间：' + getCurrentTime();
+  
   const memoryKeys = [
     '思思基本信息', '思思外貌与风格', '思思颜色喜好', '思思手机',
     '思思健康', '思思性格', '思思技能', '思思工作', '思思家庭',
