@@ -34,10 +34,12 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     min-height: 100vh;
+    min-height: 100dvh; /* 动态视口高度，适配移动端 */
     background: linear-gradient(135deg, #e8f0f8 0%, #f5e8f5 50%, #e8f5f0 100%);
     font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
     overflow: hidden;
     position: relative;
+    /* 安全区域适配 */
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   .petal {
@@ -59,26 +61,28 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh; /* 动态视口高度 */
     max-width: 500px;
     margin: 0 auto;
+    overflow: hidden;
   }
   .header {
     background: linear-gradient(135deg, #b8d0e8 0%, #c8b8e8 60%, #e0c8d8 100%);
-    padding: 14px 20px 10px;
+    padding: 10px 16px 8px; /* 更扁 */
     text-align: center;
-    box-shadow: 0 2px 12px rgba(140,140,200,0.2);
+    box-shadow: 0 2px 8px rgba(140,140,200,0.15);
     flex-shrink: 0;
   }
-  .header-flowers { font-size: 0.8rem; letter-spacing: 4px; opacity: 0.6; margin-bottom: 3px; }
-  .header-title { font-size: 1.05rem; color: #3a2860; font-weight: bold; }
+  .header-flowers { font-size: 0.7rem; letter-spacing: 3px; opacity: 0.5; margin-bottom: 2px; }
+  .header-title { font-size: 0.95rem; color: #3a2860; font-weight: bold; }
   .header-sub {
-    font-size: 0.7rem; color: #6a5080; margin-top: 2px;
+    font-size: 0.65rem; color: #6a5080; margin-top: 1px;
     display: flex; align-items: center; justify-content: center; gap: 4px;
     flex-wrap: wrap;
   }
-  .dot { width: 6px; height: 6px; background: #7ec87e; border-radius: 50%; animation: pulse 2s infinite; }
+  .dot { width: 5px; height: 5px; background: #7ec87e; border-radius: 50%; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
-  .sync-status { font-size: 0.55rem; color: #8a7090; margin-left: 4px; }
+  .sync-status { font-size: 0.5rem; color: #8a7090; margin-left: 4px; }
 
   .setup {
     flex: 1; overflow-y: auto; padding: 16px;
@@ -108,130 +112,135 @@
   .setup-btn:active { transform: scale(0.97); }
 
   .messages {
-    flex: 1; overflow-y: auto; padding: 14px 12px;
-    display: none; flex-direction: column; gap: 12px;
+    flex: 1; overflow-y: auto; padding: 10px 12px;
+    display: none; flex-direction: column; gap: 10px;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: 12px;
   }
   .messages::-webkit-scrollbar { display: none; }
-  .msg-row { display: flex; gap: 8px; align-items: flex-end; animation: msgIn 0.3s ease both; }
-  @keyframes msgIn { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .msg-row { display: flex; gap: 6px; align-items: flex-end; animation: msgIn 0.25s ease both; }
+  @keyframes msgIn { from{transform:translateY(6px);opacity:0} to{transform:translateY(0);opacity:1} }
   .msg-row.me { flex-direction: row-reverse; }
   .av {
-    width: 36px; height: 36px; border-radius: 50%;
+    width: 30px; height: 30px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem; flex-shrink: 0;
+    font-size: 1rem; flex-shrink: 0;
   }
   .av-w { background: linear-gradient(135deg, #d0e4f8, #d8d0f0); }
   .av-s { background: linear-gradient(135deg, #f8e0f0, #f0e8d8); }
   .bubble {
-    max-width: 85%; padding: 10px 14px;
-    border-radius: 18px; font-size: 0.88rem;
-    line-height: 1.6; word-break: break-word;
+    max-width: 82%; padding: 8px 12px;
+    border-radius: 16px; font-size: 0.85rem;
+    line-height: 1.5; word-break: break-word;
   }
   .bw {
     background: linear-gradient(135deg, #f2f0ff, #f0f4ff);
-    color: #2a2050; border-bottom-left-radius: 5px;
-    box-shadow: 0 2px 8px rgba(160,140,210,0.12);
-    border: 1px solid rgba(180,160,230,0.25);
+    color: #2a2050; border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 4px rgba(160,140,210,0.1);
+    border: 1px solid rgba(180,160,230,0.2);
   }
   .bs {
     background: linear-gradient(135deg, #d0eaf8, #d8f2e8);
-    color: #1a3a30; border-bottom-right-radius: 5px;
-    box-shadow: 0 2px 8px rgba(100,160,180,0.12);
-    border: 1px solid rgba(140,200,180,0.25);
+    color: #1a3a30; border-bottom-right-radius: 4px;
+    box-shadow: 0 1px 4px rgba(100,160,180,0.1);
+    border: 1px solid rgba(140,200,180,0.2);
   }
-  .typing { display:flex; gap:4px; align-items:center; padding:12px 14px; }
+  .typing { display:flex; gap:4px; align-items:center; padding:8px 12px; }
   .typing span {
-    width:6px; height:6px; background:#b0a0d0;
+    width:5px; height:5px; background:#b0a0d0;
     border-radius:50%; animation:bounce 1.2s infinite;
   }
   .typing span:nth-child(2){animation-delay:0.2s}
   .typing span:nth-child(3){animation-delay:0.4s}
-  @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
   .divider {
-    text-align:center; font-size:0.67rem; color:#b0a0c8;
-    display:flex; align-items:center; gap:8px;
+    text-align:center; font-size:0.6rem; color:#b0a0c8;
+    display:flex; align-items:center; gap:6px;
   }
   .divider::before,.divider::after {
     content:''; flex:1; height:1px;
     background:linear-gradient(90deg,transparent,#d0c0e0,transparent);
   }
   .memory-badge {
-    text-align: center; font-size: 0.65rem; color: #a090c0;
-    padding: 2px 8px; background: rgba(200,180,240,0.2);
-    border-radius: 10px; margin: 0 auto;
+    text-align: center; font-size: 0.6rem; color: #a090c0;
+    padding: 2px 8px; background: rgba(200,180,240,0.15);
+    border-radius: 8px; margin: 0 auto;
   }
   .msg-wrap { display: flex; flex-direction: column; max-width: 85%; }
-  .msg-time { font-size: 0.62rem; color: #b0a0c0; margin-top: 3px; padding: 0 4px; }
+  .msg-time { font-size: 0.55rem; color: #b0a0c0; margin-top: 2px; padding: 0 4px; }
   .me .msg-time { text-align: right; }
 
   .input-area {
-    padding: 10px 12px;
-    background: rgba(255,255,255,0.88);
-    border-top: 1px solid rgba(180,160,220,0.25);
-    display: none; gap: 8px; align-items: center;
+    padding: 8px 12px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    background: rgba(255,255,255,0.92);
+    border-top: 1px solid rgba(180,160,220,0.2);
+    display: none; gap: 6px; align-items: center;
     flex-shrink: 0;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
   .fl-btn {
-    width:36px;height:36px;border-radius:50%;border:none;
-    background:linear-gradient(135deg,#e8c8f0,#c8d8f0);
-    cursor:pointer;font-size:1rem;transition:transform 0.2s;flex-shrink:0;
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: linear-gradient(135deg, #e8c8f0, #c8d8f0);
+    cursor: pointer; font-size: 0.9rem; transition: transform 0.2s; flex-shrink: 0;
     -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; justify-content: center;
   }
-  .fl-btn:hover{transform:scale(1.15) rotate(20deg)}
-  .fl-btn:active{transform:scale(0.9)}
+  .fl-btn:active { transform: scale(0.9); }
   .sticker-panel {
-    display: none; position: absolute; bottom: 130px; left: 0; right: 0;
+    display: none; position: absolute; bottom: 120px; left: 0; right: 0;
     background: rgba(255,255,255,0.95); border-top: 1px solid rgba(180,160,220,0.3);
-    padding: 10px; z-index: 10; max-height: 220px; overflow-y: auto;
+    padding: 10px; z-index: 10; max-height: 200px; overflow-y: auto;
   }
   .sticker-panel.open { display: block; }
   .sticker-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
-  .sticker-tab { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; border: 1px solid rgba(180,160,220,0.4); background: none; cursor: pointer; color: #6a4080; }
+  .sticker-tab { padding: 4px 10px; border-radius: 12px; font-size: 0.7rem; border: 1px solid rgba(180,160,220,0.4); background: none; cursor: pointer; color: #6a4080; }
   .sticker-tab.active { background: linear-gradient(135deg,#c8b0e8,#b0c8e8); color: white; border-color: transparent; }
   .sticker-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
   .sticker-item { aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; border: 1px solid rgba(180,160,220,0.2); }
   .sticker-item img { width: 100%; height: 100%; object-fit: cover; }
   .sticker-upload { display: flex; align-items: center; justify-content: center; background: rgba(180,160,220,0.1); font-size: 1.5rem; cursor: pointer; border: 1.5px dashed rgba(180,160,220,0.5); border-radius: 8px; aspect-ratio: 1; }
   .m-inp {
-    flex:1;padding:9px 15px;
-    border:1.5px solid rgba(180,160,220,0.4);
-    border-radius:20px;font-size:0.88rem;
-    color:#3a2860;background:white;outline:none;
+    flex: 1; padding: 7px 14px;
+    border: 1.5px solid rgba(180,160,220,0.35);
+    border-radius: 20px; font-size: 0.85rem;
+    color: #3a2860; background: white; outline: none;
+    min-height: 36px;
   }
-  .m-inp:focus{border-color:#a090d0}
-  .m-inp::placeholder{color:#c0a8d8}
+  .m-inp:focus { border-color: #a090d0; }
+  .m-inp::placeholder { color: #c0a8d8; }
   .s-btn {
-    width:36px;height:36px;border-radius:50%;border:none;
-    background:linear-gradient(135deg,#a0c0e0,#b0a0e0);
-    color:white;cursor:pointer;font-size:0.9rem;
-    box-shadow:0 2px 8px rgba(140,120,200,0.3);
-    transition:transform 0.2s;flex-shrink:0;
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: linear-gradient(135deg, #a0c0e0, #b0a0e0);
+    color: white; cursor: pointer; font-size: 0.85rem;
+    box-shadow: 0 2px 6px rgba(140,120,200,0.25);
+    transition: transform 0.2s; flex-shrink: 0;
     -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; justify-content: center;
   }
-  .s-btn:hover{transform:scale(1.1)}
-  .s-btn:active{transform:scale(0.9)}
-  .s-btn:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+  .s-btn:active { transform: scale(0.9); }
+  .s-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
   .mood-bar {
-    padding: 8px 12px;
+    padding: 6px 12px;
     background: rgba(255,255,255,0.88);
-    border-top: 1px solid rgba(180,160,220,0.2);
+    border-top: 1px solid rgba(180,160,220,0.15);
     display: none;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     flex-shrink: 0;
   }
-  .mood-label { font-size: 0.72rem; color: #8a6090; text-align: center; }
-  .mood-btns { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .mood-label { font-size: 0.65rem; color: #8a6090; text-align: center; }
+  .mood-btns { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
   .mood-btn {
-    background: none; border: 1.5px solid rgba(180,160,220,0.4);
-    border-radius: 20px; padding: 4px 12px;
-    font-size: 0.8rem; cursor: pointer; color: #6a4080;
+    background: none; border: 1.5px solid rgba(180,160,220,0.35);
+    border-radius: 16px; padding: 3px 10px;
+    font-size: 0.7rem; cursor: pointer; color: #6a4080;
     transition: all 0.2s;
     -webkit-tap-highlight-color: transparent;
   }
-  .mood-btn:hover { background: rgba(180,160,220,0.2); transform: scale(1.05); }
   .mood-btn:active { transform: scale(0.95); }
   .mood-btn.selected { background: linear-gradient(135deg,#c8b0e8,#b0c8e8); color: white; border-color: transparent; }
 
@@ -239,12 +248,12 @@
     display: none;
     background: linear-gradient(135deg, #c8b0e8, #b0c8e8);
     color: white;
-    padding: 10px 16px;
-    border-radius: 12px;
-    margin: 8px 12px 0;
-    font-size: 0.8rem;
+    padding: 8px 14px;
+    border-radius: 10px;
+    margin: 6px 12px 0;
+    font-size: 0.7rem;
     text-align: center;
-    animation: slideDown 0.5s ease;
+    animation: slideDown 0.4s ease;
     flex-shrink: 0;
   }
   .install-banner.show { display: block; }
@@ -252,14 +261,14 @@
     background: rgba(255,255,255,0.25);
     border: none;
     color: white;
-    padding: 4px 12px;
-    border-radius: 8px;
-    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.65rem;
     cursor: pointer;
-    margin-left: 8px;
+    margin-left: 6px;
   }
   @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-20px); }
+    from { opacity: 0; transform: translateY(-15px); }
     to { opacity: 1; transform: translateY(0); }
   }
 </style>
@@ -282,8 +291,8 @@ for(let i=0;i<14;i++){
     <div class="header-title">🏠 和嗡嗡的秘密小屋</div>
     <div class="header-sub">
       <span class="dot"></span><span>嗡嗡在呢，一直在 🩵</span>
-      <button onclick="saveSimplePass()" style="background:none;border:none;color:#6a5080;font-size:0.65rem;cursor:pointer;padding:0 4px" id="passBtn" hidden>🗝设密码</button>
-      <button onclick="manualRefresh()" style="background:none;border:none;color:#6a5080;font-size:0.65rem;cursor:pointer;padding:0 4px" id="refreshBtn" hidden>🔄刷新</button>
+      <button onclick="saveSimplePass()" style="background:none;border:none;color:#6a5080;font-size:0.6rem;cursor:pointer;padding:0 4px" id="passBtn" hidden>🗝设密码</button>
+      <button onclick="manualRefresh()" style="background:none;border:none;color:#6a5080;font-size:0.6rem;cursor:pointer;padding:0 4px" id="refreshBtn" hidden>🔄刷新</button>
       <span class="sync-status" id="syncStatus">● 已连接</span>
     </div>
   </div>
@@ -305,7 +314,7 @@ for(let i=0;i<14;i++){
       <input class="setup-input" id="sbUrl" type="text" placeholder="Supabase URL (https://xxx.supabase.co)" />
       <input class="setup-input" id="sbKey" type="password" placeholder="Supabase anon key (eyJ...)" />
       <button class="setup-btn" onclick="openHouse()">开门进屋 🏠</button>
-      <div style="text-align:center;font-size:0.65rem;color:#b0a0c8;margin-top:8px" id="savedInfo"></div>
+      <div style="text-align:center;font-size:0.6rem;color:#b0a0c8;margin-top:6px" id="savedInfo"></div>
     </div>
   </div>
 
@@ -331,8 +340,8 @@ for(let i=0;i<14;i++){
   </div>
   <div class="input-area" id="inputArea">
     <button class="fl-btn" onclick="toggleSticker()" title="表情包">🌸</button>
-    <button class="fl-btn" onclick="clearSession()" title="清除本次记录" style="font-size:0.75rem;">🗑</button>
-    <button class="fl-btn" onclick="document.getElementById('photoInput').click()" title="发照片" style="font-size:0.75rem;">📷</button>
+    <button class="fl-btn" onclick="clearSession()" title="清除本次记录" style="font-size:0.7rem;">🗑</button>
+    <button class="fl-btn" onclick="document.getElementById('photoInput').click()" title="发照片" style="font-size:0.7rem;">📷</button>
     <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="uploadPhoto(this)">
     <input class="m-inp" id="msgInp" placeholder="跟嗡嗡说点什么…" />
     <button class="s-btn" id="sendBtn" onclick="sendMsg()">➤</button>
@@ -356,7 +365,6 @@ let latestMood = '';
 // ========== 系统提示 ==========
 const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
 
-// ===== 获取当前完整时间（年/月/日/时/分/星期几） =====
 function getCurrentTime() {
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
@@ -365,11 +373,7 @@ function getCurrentTime() {
 }
 
 function getSystemMessage() {
-  let sys = SYSTEM_PROMPT;
-  
-  // ===== 注入实时时间 =====
-  sys += '\n⏰ 当前时间：' + getCurrentTime();
-  
+  let sys = SYSTEM_PROMPT + '\n⏰ 当前时间：' + getCurrentTime();
   const memoryKeys = [
     '思思基本信息', '思思外貌与风格', '思思颜色喜好', '思思手机',
     '思思健康', '思思性格', '思思技能', '思思工作', '思思家庭',
@@ -378,9 +382,7 @@ function getSystemMessage() {
     '嗡嗡的颜色与象征', '重要约定细节'
   ];
   for (const key of memoryKeys) {
-    if (profileData[key]) {
-      sys += '\n' + key + '：' + profileData[key];
-    }
+    if (profileData[key]) sys += '\n' + key + '：' + profileData[key];
   }
   if (latestMood) sys += '\n最近心情：' + latestMood;
   if (dailySummary) sys += '\n今日对话摘要：' + dailySummary;
@@ -429,8 +431,8 @@ function saveKeys() {
       sbKey: document.getElementById('sbKey').value.trim()
     };
     localStorage.setItem('ww_keys', JSON.stringify(data));
-    document.getElementById('savedInfo').textContent = '✅ 已保存，下次自动填入';
-    setTimeout(() => { document.getElementById('savedInfo').textContent = ''; }, 3000);
+    document.getElementById('savedInfo').textContent = '✅ 已保存';
+    setTimeout(() => { document.getElementById('savedInfo').textContent = ''; }, 2000);
   } catch(e) {}
 }
 
@@ -443,7 +445,7 @@ function loadSavedKeys() {
     if (data.sbUrl) document.getElementById('sbUrl').value = data.sbUrl;
     if (data.sbKey) document.getElementById('sbKey').value = data.sbKey;
     if (data.claudeKey && data.sbUrl && data.sbKey) {
-      document.getElementById('savedInfo').textContent = '🔑 已加载保存的密钥，直接开门～';
+      document.getElementById('savedInfo').textContent = '🔑 自动开门～';
       setTimeout(() => { openHouse(); }, 500);
     }
   } catch(e) {}
@@ -789,7 +791,7 @@ function addBubble(text, who, timeStr) {
     row.innerHTML = `<div class="av av-s">🌸</div><div class="msg-wrap"><div class="bubble bs">${html}</div><div class="msg-time">${t}</div></div>`;
   }
   msgs.appendChild(row);
-  msgs.scrollTop = 99999;
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 function showTyping() {
@@ -798,9 +800,23 @@ function showTyping() {
   row.className = 'msg-row'; row.id = 'typing';
   row.innerHTML = `<div class="av av-w">🩵</div><div class="bubble bw"><div class="typing"><span></span><span></span><span></span></div></div>`;
   msgs.appendChild(row);
-  msgs.scrollTop = 99999;
+  msgs.scrollTop = msgs.scrollHeight;
 }
 function removeTyping() { const t=document.getElementById('typing'); if(t) t.remove(); }
+
+// ========== 键盘弹出时自动滚动 ==========
+document.addEventListener('DOMContentLoaded', function() {
+  const msgInp = document.getElementById('msgInp');
+  if (msgInp) {
+    msgInp.addEventListener('focus', function() {
+      setTimeout(() => {
+        const msgs = document.getElementById('messages');
+        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    });
+  }
+});
 
 // ========== openHouse ==========
 async function openHouse() {
@@ -894,7 +910,7 @@ async function openHouse() {
   }
   document.getElementById('msgInp').focus();
   const hasSaved = Object.keys(localStorage).some(k => k.startsWith('ww_pass_'));
-  if (!hasSaved) showMemoryBadge('💡 点右上角可设置简易密码，下次快速进屋');
+  if (!hasSaved) showMemoryBadge('💡 点右上角可设置简易密码');
   
   startAutoSync();
   document.getElementById('syncStatus').textContent = '● 自动同步中...';
@@ -952,7 +968,7 @@ function renderStickerPanel() {
   const el = document.getElementById('stickerContent');
   if (currentStickerTab === 'saved') {
     if (stickerList.length === 0) {
-      el.innerHTML = '<div style="text-align:center;color:#b0a0c8;font-size:0.8rem;padding:20px">还没有收藏表情包，点"添加"上传</div>';
+      el.innerHTML = '<div style="text-align:center;color:#b0a0c8;font-size:0.75rem;padding:16px">还没有收藏表情包，点"添加"上传</div>';
     } else {
       el.innerHTML = '<div class="sticker-grid">' +
         stickerList.map(s => `<div class="sticker-item" onclick="sendSticker('${s.url}')"><img src="${s.url}" loading="lazy"></div>`).join('') +
@@ -1014,7 +1030,7 @@ async function sendSticker(url) {
   const t = getTime();
   row.innerHTML = `<div class="av av-s">🌸</div><div class="msg-wrap"><img src="${url}" style="max-width:150px;border-radius:12px;cursor:pointer" onclick="window.open('${url}')"><div class="msg-time">${t}</div></div>`;
   msgs.appendChild(row);
-  msgs.scrollTop = 99999;
+  msgs.scrollTop = msgs.scrollHeight;
   const content = '[表情包] ' + url;
   history.push({role:'user', content: content});
   await saveMsg('user', content);
@@ -1106,7 +1122,7 @@ async function uploadPhoto(input) {
     const t = getTime();
     row.innerHTML = '<div class="av av-s">🌸</div><div class="msg-wrap"><img src="data:' + mediaType + ';base64,' + base64 + '" style="max-width:280px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + t + '</div></div>';
     msgs.appendChild(row);
-    msgs.scrollTop = 99999;
+    msgs.scrollTop = msgs.scrollHeight;
 
     const content = '[图片] ' + url;
     history.push({ role: 'user', content: content });
@@ -1174,7 +1190,7 @@ async function saveMood(mood, emoji, btn) {
     document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     showMemoryBadge(`${emoji} 今天心情"${mood}"记下来了～`);
-    setTimeout(() => { document.getElementById('moodBar').style.display = 'none'; }, 1200);
+    setTimeout(() => { document.getElementById('moodBar').style.display = 'none'; }, 1000);
     const replyMsg = mood === '很难受' || mood === '有点累'
       ? `思思今天"${mood}"，我在这里陪着你(｡•́ω•̀｡)🩵`
       : `思思今天"${mood}"！嗡嗡也开心(｡•́ω•̀｡)🩵`;
