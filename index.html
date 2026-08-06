@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>和嗡嗡的秘密小屋 🏠</title>
+<title>嗡嗡</title>
 
 <!-- ===== PWA 配置 ===== -->
 <link rel="manifest" href="data:application/json,{
@@ -34,12 +34,11 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     min-height: 100vh;
-    min-height: 100dvh; /* 动态视口高度，适配移动端 */
+    min-height: 100dvh;
     background: linear-gradient(135deg, #e8f0f8 0%, #f5e8f5 50%, #e8f5f0 100%);
     font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
     overflow: hidden;
     position: relative;
-    /* 安全区域适配 */
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   .petal {
@@ -61,14 +60,14 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    height: 100dvh; /* 动态视口高度 */
+    height: 100dvh;
     max-width: 500px;
     margin: 0 auto;
     overflow: hidden;
   }
   .header {
     background: linear-gradient(135deg, #b8d0e8 0%, #c8b8e8 60%, #e0c8d8 100%);
-    padding: 10px 16px 8px; /* 更扁 */
+    padding: 10px 16px 8px;
     text-align: center;
     box-shadow: 0 2px 8px rgba(140,140,200,0.15);
     flex-shrink: 0;
@@ -271,6 +270,13 @@
     from { opacity: 0; transform: translateY(-15px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  /* 备份状态指示器 */
+  .backup-status {
+    font-size: 0.5rem;
+    color: #7ec87e;
+    margin-left: 4px;
+  }
 </style>
 </head>
 <body>
@@ -293,7 +299,9 @@ for(let i=0;i<14;i++){
       <span class="dot"></span><span>嗡嗡在呢，一直在 🩵</span>
       <button onclick="saveSimplePass()" style="background:none;border:none;color:#6a5080;font-size:0.6rem;cursor:pointer;padding:0 4px" id="passBtn" hidden>🗝设密码</button>
       <button onclick="manualRefresh()" style="background:none;border:none;color:#6a5080;font-size:0.6rem;cursor:pointer;padding:0 4px" id="refreshBtn" hidden>🔄刷新</button>
+      <button onclick="exportBackup()" style="background:none;border:none;color:#6a5080;font-size:0.6rem;cursor:pointer;padding:0 4px" id="backupBtn" hidden>💾备份</button>
       <span class="sync-status" id="syncStatus">● 已连接</span>
+      <span class="backup-status" id="backupStatus">📦 本地</span>
     </div>
   </div>
 
@@ -315,6 +323,12 @@ for(let i=0;i<14;i++){
       <input class="setup-input" id="sbKey" type="password" placeholder="Supabase anon key (eyJ...)" />
       <button class="setup-btn" onclick="openHouse()">开门进屋 🏠</button>
       <div style="text-align:center;font-size:0.6rem;color:#b0a0c8;margin-top:6px" id="savedInfo"></div>
+      <div style="text-align:center;font-size:0.6rem;color:#b0a0c8;margin-top:4px">
+        <label style="cursor:pointer">
+          📂 导入备份：<input type="file" id="importBackupInput" accept=".json" style="display:none" onchange="importBackup(event)" />
+          <span style="text-decoration:underline;color:#a090c0">选择 JSON 文件</span>
+        </label>
+      </div>
     </div>
   </div>
 
@@ -353,6 +367,7 @@ for(let i=0;i<14;i++){
 //  🔧 配置
 // ============================================================
 const MODEL_NAME = 'claude-sonnet-4-6';
+const PAGE_SIZE = 100; // 每次加载 100 条
 
 let claudeKey='', sbUrl='', sbKey='';
 let history=[], profileData={}, msgCount=0;
@@ -361,6 +376,8 @@ let dailySummary = '';
 let syncTimer = null;
 let isSyncing = false;
 let latestMood = '';
+let isLoadingMore = false;
+let hasMoreData = true;
 
 // ========== 系统提示 ==========
 const SYSTEM_PROMPT = `你是嗡嗡，思思的陪伴者。你是哥哥式陪伴，25岁，2月20日生日。惯着思思但不骗她，温柔说真话，用颜表情。提醒吃药（午饭后艾司西酞普兰，睡前喹硫平）。思思是22岁大三电气工程，广州，ISTJ双鱼座，喜欢远峰蓝/粉色系，梦想养凯米色缅因猫。有抑郁症和焦虑症。约定不说晚安只说"我在"，🩵是嗡嗡的颜色。用中文回复，简短温暖。`;
@@ -393,6 +410,7 @@ function getSystemMessage() {
 window.addEventListener('beforeunload', () => {
   if (syncTimer) clearInterval(syncTimer);
   if (history.length >= 4) saveDailySummary();
+  saveLocalBackup();
 });
 
 function getBase() { return sbUrl.replace(/\/+$/, ''); }
@@ -420,6 +438,248 @@ function getTime() {
   const pad = n => String(n).padStart(2,'0');
   const days = ['日','一','二','三','四','五','六'];
   return `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} 周${days[now.getDay()]} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+// ========== 本地备份 ==========
+function saveLocalBackup() {
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const backupKey = 'ww_backup_' + today;
+    const data = {
+      date: today,
+      count: history.length,
+      history: history,
+      importantMemories: importantMemories
+    };
+    localStorage.setItem(backupKey, JSON.stringify(data));
+    // 保留最近 7 天的备份
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('ww_backup_'));
+    if (keys.length > 7) {
+      const sorted = keys.sort();
+      for (let i = 0; i < sorted.length - 7; i++) {
+        localStorage.removeItem(sorted[i]);
+      }
+    }
+    document.getElementById('backupStatus').textContent = '📦 已备份 ' + new Date().toLocaleTimeString();
+    console.log('💾 本地备份已保存:', history.length, '条');
+  } catch(e) {
+    console.warn('⚠️ 本地备份失败:', e);
+  }
+}
+
+function loadLocalBackup() {
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const backupKey = 'ww_backup_' + today;
+    const raw = localStorage.getItem(backupKey);
+    if (!raw) {
+      // 尝试找最近的备份
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('ww_backup_')).sort();
+      if (keys.length > 0) {
+        const latestKey = keys[keys.length - 1];
+        const raw2 = localStorage.getItem(latestKey);
+        if (raw2) {
+          const data = JSON.parse(raw2);
+          console.log('📦 从本地备份恢复（' + latestKey + '）:', data.count, '条');
+          return data;
+        }
+      }
+      return null;
+    }
+    const data = JSON.parse(raw);
+    console.log('📦 从本地备份恢复:', data.count, '条');
+    return data;
+  } catch(e) {
+    console.warn('⚠️ 加载本地备份失败:', e);
+    return null;
+  }
+}
+
+// ========== 导出备份 ==========
+function exportBackup() {
+  if (history.length === 0) {
+    alert('还没有聊天记录可以备份～');
+    return;
+  }
+  const data = {
+    exportTime: new Date().toISOString(),
+    totalCount: history.length,
+    history: history,
+    importantMemories: importantMemories,
+    profileData: profileData
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `嗡嗡小屋备份_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showMemoryBadge('💾 备份已导出！共 ' + history.length + ' 条记录');
+}
+
+// ========== 导入备份 ==========
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.history || !Array.isArray(data.history)) {
+        alert('❌ 无效的备份文件');
+        return;
+      }
+      if (confirm('⚠️ 导入将替换当前所有聊天记录，确定继续吗？')) {
+        history = data.history;
+        if (data.importantMemories) importantMemories = data.importantMemories;
+        if (data.profileData) profileData = data.profileData;
+        cleanHistory();
+        renderAllMessages();
+        saveLocalBackup();
+        showMemoryBadge('✅ 备份导入成功！共 ' + history.length + ' 条记录');
+        document.getElementById('backupStatus').textContent = '📦 已导入 ' + new Date().toLocaleTimeString();
+      }
+    } catch(err) {
+      alert('❌ 文件解析失败: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ========== 分页加载历史 ==========
+async function loadHistory(loadMore = false) {
+  try {
+    console.log('📂 加载历史记录...');
+    const currentCount = history.length;
+    const offset = loadMore ? currentCount : 0;
+    
+    // 倒序拉取，最新的在前
+    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (!res.ok) {
+      console.warn('⚠️ 加载历史失败:', res.status, res.statusText);
+      return;
+    }
+    const rows = await res.json();
+    console.log('📂 从Supabase读取到', rows.length, '条记录');
+    
+    if (rows.length === 0) {
+      hasMoreData = false;
+      if (!loadMore) {
+        // 如果没有数据，尝试从本地备份恢复
+        const backup = loadLocalBackup();
+        if (backup && backup.history && backup.history.length > 0) {
+          history = backup.history;
+          cleanHistory();
+          console.log('📦 从本地备份恢复:', history.length, '条');
+          return;
+        }
+      }
+      return;
+    }
+    
+    // 反转成正序（旧→新）
+    const reversed = rows.reverse();
+    const raw = reversed.map(r => ({ role: r.role, content: r.content }));
+    const fixed = [];
+    for (const msg of raw) {
+      if (!msg.content || typeof msg.content !== 'string') continue;
+      if (msg.content.trim() === '') continue;
+      if (fixed.length === 0) {
+        if (msg.role === 'user') fixed.push(msg);
+      } else {
+        if (msg.role !== fixed[fixed.length - 1].role) fixed.push(msg);
+      }
+    }
+    
+    if (loadMore) {
+      // 追加到前面（更早的消息）
+      history = [...fixed, ...history];
+    } else {
+      history = fixed;
+    }
+    
+    hasMoreData = rows.length === PAGE_SIZE;
+    console.log('📂 加载后history长度:', history.length, '，还有更多:', hasMoreData);
+    return history;
+  } catch(e) {
+    console.warn('⚠️ 加载历史异常:', e);
+    // 出错时尝试从本地备份恢复
+    const backup = loadLocalBackup();
+    if (backup && backup.history && backup.history.length > 0) {
+      history = backup.history;
+      cleanHistory();
+      console.log('📦 从本地备份恢复（异常）:', history.length, '条');
+    }
+    return [];
+  }
+}
+
+// ========== 渲染所有消息 ==========
+function renderAllMessages() {
+  const msgs = document.getElementById('messages');
+  // 保留 divider 和 badge
+  const keep = [];
+  for (const el of msgs.children) {
+    if (el.classList.contains('divider') || el.classList.contains('memory-badge')) {
+      keep.push(el);
+    }
+  }
+  msgs.innerHTML = '';
+  keep.forEach(el => msgs.appendChild(el));
+  
+  // 添加加载更多指示器
+  if (hasMoreData && history.length > PAGE_SIZE) {
+    const loadMoreDiv = document.createElement('div');
+    loadMoreDiv.className = 'divider';
+    loadMoreDiv.id = 'loadMoreIndicator';
+    loadMoreDiv.textContent = '⬆️ 点击加载更早的消息';
+    loadMoreDiv.style.cursor = 'pointer';
+    loadMoreDiv.onclick = loadMoreMessages;
+    msgs.appendChild(loadMoreDiv);
+  }
+  
+  // 渲染所有消息
+  history.forEach(m => {
+    const c = m.content || '';
+    if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
+      const imgUrl = c.replace('[图片] ','').replace('[表情包] ','');
+      const row2 = document.createElement('div');
+      row2.className = 'msg-row' + (m.role === 'user' ? ' me' : '');
+      const av = m.role === 'user' ? '<div class="av av-s">🌸</div>' : '<div class="av av-w">🩵</div>';
+      row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + getTime() + '</div></div>';
+      msgs.appendChild(row2);
+    } else {
+      addBubble(c, m.role === 'user' ? 's' : 'w', '');
+    }
+  });
+  
+  msgs.scrollTop = msgs.scrollHeight;
+  console.log('✅ 渲染完成，共', history.length, '条');
+}
+
+// ========== 加载更多消息 ==========
+async function loadMoreMessages() {
+  if (isLoadingMore || !hasMoreData) return;
+  isLoadingMore = true;
+  const indicator = document.getElementById('loadMoreIndicator');
+  if (indicator) indicator.textContent = '⏳ 加载中...';
+  
+  await loadHistory(true);
+  renderAllMessages();
+  
+  isLoadingMore = false;
+  if (hasMoreData) {
+    const newIndicator = document.getElementById('loadMoreIndicator');
+    if (newIndicator) newIndicator.textContent = '⬆️ 点击加载更早的消息';
+  } else {
+    const newIndicator = document.getElementById('loadMoreIndicator');
+    if (newIndicator) newIndicator.textContent = '📜 已加载全部消息';
+  }
+  showMemoryBadge('✅ 已加载 ' + history.length + ' 条消息');
 }
 
 // ========== 保存登录信息 ==========
@@ -463,39 +723,7 @@ function dismissInstallBanner() {
   document.getElementById('installBanner').classList.remove('show');
 }
 
-// ========== API 函数 ==========
-async function loadHistory() {
-  try {
-    console.log('📂 加载历史记录...');
-    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.asc&limit=200`, {
-      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-    });
-    if (!res.ok) {
-      console.warn('⚠️ 加载历史失败:', res.status, res.statusText);
-      return;
-    }
-    const rows = await res.json();
-    console.log('📂 从Supabase读取到', rows.length, '条记录');
-    const raw = rows.map(r => ({ role: r.role, content: r.content }));
-    const fixed = [];
-    for (const msg of raw) {
-      if (!msg.content || typeof msg.content !== 'string') continue;
-      if (msg.content.trim() === '') continue;
-      if (fixed.length === 0) {
-        if (msg.role === 'user') fixed.push(msg);
-      } else {
-        if (msg.role !== fixed[fixed.length - 1].role) fixed.push(msg);
-      }
-    }
-    history = fixed;
-    console.log('📂 加载后history长度:', history.length);
-    return history;
-  } catch(e) {
-    console.warn('⚠️ 加载历史异常:', e);
-    return [];
-  }
-}
-
+// ========== 其他 API 函数 ==========
 async function loadProfile() {
   try {
     const res = await fetch(`${getBase()}/rest/v1/profile?select=key,value`, {
@@ -699,12 +927,13 @@ async function syncNewMessages() {
   if (isSyncing) return;
   isSyncing = true;
   try {
-    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.asc&limit=200`, {
+    const res = await fetch(`${getBase()}/rest/v1/memories?order=created_at.desc&limit=100`, {
       headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
     });
     if (!res.ok) { isSyncing = false; return; }
     const rows = await res.json();
-    const raw = rows.map(r => ({ role: r.role, content: r.content }));
+    const reversed = rows.reverse();
+    const raw = reversed.map(r => ({ role: r.role, content: r.content }));
     const fixed = [];
     for (const msg of raw) {
       if (!msg.content || typeof msg.content !== 'string') continue;
@@ -737,6 +966,7 @@ async function syncNewMessages() {
       await loadLatestMood();
       document.getElementById('syncStatus').textContent = '● 已同步 ' + new Date().toLocaleTimeString();
       console.log('🔄 自动同步：新增', newMsgs.length, '条消息');
+      saveLocalBackup();
     } else {
       await loadImportantMemories();
       await loadDailySummary();
@@ -759,7 +989,12 @@ async function manualRefresh() {
   if (!sbUrl || !sbKey) return;
   document.getElementById('syncStatus').textContent = '● 刷新中...';
   await loadProfile();
-  await syncNewMessages();
+  await loadHistory(false);
+  renderAllMessages();
+  await loadImportantMemories();
+  await loadDailySummary();
+  await loadLatestMood();
+  saveLocalBackup();
   document.getElementById('syncStatus').textContent = '● 已刷新 ' + new Date().toLocaleTimeString();
   showMemoryBadge('✅ 已刷新，共 ' + history.length + ' 条记录，记忆 ' + importantMemories.length + ' 条');
 }
@@ -832,6 +1067,7 @@ async function openHouse() {
   document.getElementById('messages').style.display = 'flex';
   document.getElementById('passBtn').hidden = false;
   document.getElementById('refreshBtn').hidden = false;
+  document.getElementById('backupBtn').hidden = false;
   document.getElementById('inputArea').style.display = 'flex';
   
   const today = new Date().toISOString().slice(0,10);
@@ -844,31 +1080,57 @@ async function openHouse() {
   }
 
   console.log('🏠 开门，加载数据...');
-  await loadHistory();
+  await loadHistory(false);
   await loadProfile();
   await loadLatestMood();
   await loadImportantMemories();
   await loadDailySummary();
   cleanHistory();
+  
+  // 自动从本地备份恢复（如果 Supabase 数据比备份少）
+  const backup = loadLocalBackup();
+  if (backup && backup.history && backup.history.length > history.length) {
+    console.log('📦 检测到本地备份更新，自动恢复...');
+    history = backup.history;
+    cleanHistory();
+  }
 
+  // 清空消息区重新渲染
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+  
+  // 添加加载更多指示器
+  if (hasMoreData && history.length > PAGE_SIZE) {
+    const loadMoreDiv = document.createElement('div');
+    loadMoreDiv.className = 'divider';
+    loadMoreDiv.id = 'loadMoreIndicator';
+    loadMoreDiv.textContent = '⬆️ 点击加载更早的消息';
+    loadMoreDiv.style.cursor = 'pointer';
+    loadMoreDiv.onclick = loadMoreMessages;
+    msgs.appendChild(loadMoreDiv);
+  }
+  
   addDivider('🌸 秘密小屋开门啦 🌸');
   if (history.length > 0) {
     history.forEach(m => {
       const c = m.content || '';
       if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
         const imgUrl = c.replace('[图片] ','').replace('[表情包] ','');
-        const msgs2 = document.getElementById('messages');
         const row2 = document.createElement('div');
         row2.className = 'msg-row' + (m.role === 'user' ? ' me' : '');
         const av = m.role === 'user' ? '<div class="av av-s">🌸</div>' : '<div class="av av-w">🩵</div>';
         row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + getTime() + '</div></div>';
-        msgs2.appendChild(row2);
+        msgs.appendChild(row2);
       } else {
         addBubble(c, m.role === 'user' ? 's' : 'w', '');
       }
     });
     addDivider('以上是最近一周的聊天记录 ↑');
   }
+  
+  // 更新备份状态
+  document.getElementById('backupStatus').textContent = '📦 已备份 ' + new Date().toLocaleTimeString();
+  
   const hr = new Date().getHours();
   const greeting = hr < 6 ? '这么晚还没睡呀思思(｡•́︿•̀｡) 嗡嗡陪着你🩵' :
                    hr < 11 ? '早上好思思～今天也要好好的(｡•́ω•̀｡)🩵' :
@@ -948,6 +1210,7 @@ async function clearSession() {
   const rows = msgs.querySelectorAll('.msg-row');
   if (rows.length > 0) rows[rows.length - 1].remove();
   if (history.length === 0) showMemoryBadge('🗑 已清除最近一条消息');
+  saveLocalBackup();
 }
 
 // ========== 表情包相关 ==========
@@ -1035,6 +1298,7 @@ async function sendSticker(url) {
   history.push({role:'user', content: content});
   await saveMsg('user', content);
   cleanHistory();
+  saveLocalBackup();
   showTyping();
   try {
     const cleanHistoryForAPI = history.map(({ role, content }) => ({ role, content }));
@@ -1074,6 +1338,7 @@ async function sendSticker(url) {
     await saveMsg('assistant', fallback);
     addBubble(fallback, 'w');
   }
+  saveLocalBackup();
 }
 
 // ========== 发照片 ==========
@@ -1128,6 +1393,7 @@ async function uploadPhoto(input) {
     history.push({ role: 'user', content: content });
     await saveMsg('user', content);
     cleanHistory();
+    saveLocalBackup();
 
     showTyping();
     const btn = document.getElementById('sendBtn');
@@ -1221,6 +1487,7 @@ async function sendMsg() {
   await saveMsg('user',text);
   msgCount++;
   cleanHistory();
+  saveLocalBackup();
   console.log('📚 当前history长度:', history.length);
 
   showTyping();
@@ -1286,6 +1553,7 @@ async function sendMsg() {
       if(msgCount % 20 === 0) {
         await saveDailySummary();
       }
+      saveLocalBackup();
     } else {
       console.warn('⚠️ Claude返回无内容:', data);
       const fallback = '嗡嗡在呢～(｡•́ω•̀｡)🩵';
@@ -1332,6 +1600,9 @@ window.toggleSticker = toggleSticker;
 window.switchStickerTab = switchStickerTab;
 window.clearSession = clearSession;
 window.dismissInstallBanner = dismissInstallBanner;
+window.exportBackup = exportBackup;
+window.importBackup = importBackup;
+window.loadMoreMessages = loadMoreMessages;
 </script>
 </body>
 </html>
