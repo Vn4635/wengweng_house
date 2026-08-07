@@ -433,6 +433,14 @@ function cleanHistory() {
   history = fixed;
 }
 
+function formatTime(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const pad = n => String(n).padStart(2, '0');
+  const days = ['日','一','二','三','四','五','六'];
+  return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} 周${days[d.getDay()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function getTime() {
   const now = new Date();
   const pad = n => String(n).padStart(2,'0');
@@ -583,7 +591,7 @@ async function loadHistory(loadMore = false) {
     
     // 反转成正序（旧→新）
     const reversed = rows.reverse();
-    const raw = reversed.map(r => ({ role: r.role, content: r.content }));
+    const raw = reversed.map(r => ({ role: r.role, content: r.content, time: r.created_at }));
     const fixed = [];
     for (const msg of raw) {
       if (!msg.content || typeof msg.content !== 'string') continue;
@@ -645,15 +653,16 @@ function renderAllMessages() {
   // 渲染所有消息
   history.forEach(m => {
     const c = m.content || '';
+    const timeStr = m.time ? formatTime(m.time) : getTime();
     if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
       const imgUrl = c.replace('[图片] ','').replace('[表情包] ','');
       const row2 = document.createElement('div');
       row2.className = 'msg-row' + (m.role === 'user' ? ' me' : '');
       const av = m.role === 'user' ? '<div class="av av-s">🌸</div>' : '<div class="av av-w">🩵</div>';
-      row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + getTime() + '</div></div>';
+      row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + timeStr + '</div></div>';
       msgs.appendChild(row2);
     } else {
-      addBubble(c, m.role === 'user' ? 's' : 'w', '');
+      addBubble(c, m.role === 'user' ? 's' : 'w', timeStr);
     }
   });
   
@@ -933,7 +942,7 @@ async function syncNewMessages() {
     if (!res.ok) { isSyncing = false; return; }
     const rows = await res.json();
     const reversed = rows.reverse();
-    const raw = reversed.map(r => ({ role: r.role, content: r.content }));
+    const raw = reversed.map(r => ({ role: r.role, content: r.content, time: r.created_at }));
     const fixed = [];
     for (const msg of raw) {
       if (!msg.content || typeof msg.content !== 'string') continue;
@@ -948,16 +957,17 @@ async function syncNewMessages() {
       const newMsgs = fixed.slice(history.length);
       for (const msg of newMsgs) {
         const c = msg.content || '';
+        const timeStr = msg.time ? formatTime(msg.time) : getTime();
         if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
           const imgUrl = c.replace('[图片] ','').replace('[表情包] ','');
           const msgs2 = document.getElementById('messages');
           const row2 = document.createElement('div');
           row2.className = 'msg-row' + (msg.role === 'user' ? ' me' : '');
           const av = msg.role === 'user' ? '<div class="av av-s">🌸</div>' : '<div class="av av-w">🩵</div>';
-          row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + getTime() + '</div></div>';
+          row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + timeStr + '</div></div>';
           msgs2.appendChild(row2);
         } else {
-          addBubble(c, msg.role === 'user' ? 's' : 'w', '');
+          addBubble(c, msg.role === 'user' ? 's' : 'w', timeStr);
         }
         history.push(msg);
       }
@@ -1114,15 +1124,16 @@ async function openHouse() {
   if (history.length > 0) {
     history.forEach(m => {
       const c = m.content || '';
+      const timeStr = m.time ? formatTime(m.time) : getTime();
       if (c.startsWith('[图片] ') || c.startsWith('[表情包] ')) {
         const imgUrl = c.replace('[图片] ','').replace('[表情包] ','');
         const row2 = document.createElement('div');
         row2.className = 'msg-row' + (m.role === 'user' ? ' me' : '');
         const av = m.role === 'user' ? '<div class="av av-s">🌸</div>' : '<div class="av av-w">🩵</div>';
-        row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + getTime() + '</div></div>';
+        row2.innerHTML = av + '<div class="msg-wrap"><img src="' + imgUrl + '" style="max-width:220px;border-radius:12px;cursor:pointer" onclick="window.open(this.src)"><div class="msg-time">' + timeStr + '</div></div>';
         msgs.appendChild(row2);
       } else {
-        addBubble(c, m.role === 'user' ? 's' : 'w', '');
+        addBubble(c, m.role === 'user' ? 's' : 'w', timeStr);
       }
     });
     addDivider('以上是最近一周的聊天记录 ↑');
@@ -1482,8 +1493,9 @@ async function sendMsg() {
 
   console.log('📤 用户发送:', text);
 
-  addBubble(text,'s');
-  history.push({role:'user',content:text});
+  const timeStr = getTime();
+  addBubble(text,'s', timeStr);
+  history.push({role:'user',content:text, time: new Date().toISOString()});
   await saveMsg('user',text);
   msgCount++;
   cleanHistory();
@@ -1544,9 +1556,10 @@ async function sendMsg() {
     if(data.content && data.content[0]){
       const reply=data.content[0].text;
       console.log('📥 嗡嗡回复:', reply);
-      history.push({role:'assistant',content:reply});
+      const replyTimeStr = getTime();
+      history.push({role:'assistant',content:reply, time: new Date().toISOString()});
       await saveMsg('assistant',reply);
-      addBubble(reply,'w');
+      addBubble(reply,'w', replyTimeStr);
       if(msgCount % 8 === 0) {
         await extractAndSaveImportantMemories();
       }
@@ -1557,7 +1570,7 @@ async function sendMsg() {
     } else {
       console.warn('⚠️ Claude返回无内容:', data);
       const fallback = '嗡嗡在呢～(｡•́ω•̀｡)🩵';
-      history.push({role:'assistant',content:fallback});
+      history.push({role:'assistant',content:fallback, time: new Date().toISOString()});
       await saveMsg('assistant',fallback);
       addBubble(fallback,'w');
     }
@@ -1565,7 +1578,7 @@ async function sendMsg() {
     removeTyping();
     console.error('❌ sendMsg错误:', e);
     const fallback = '嗡嗡在呢～信号有点飘，再说一次吧(｡•́ω•̀｡)🩵';
-    history.push({role:'assistant',content:fallback});
+    history.push({role:'assistant',content:fallback, time: new Date().toISOString()});
     await saveMsg('assistant',fallback);
     addBubble(fallback,'w');
   }
